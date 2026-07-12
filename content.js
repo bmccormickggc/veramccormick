@@ -7,6 +7,13 @@ window.VERA_CONTENT = [
     status: "ready"
   },
   {
+    title: "Vera and Andrew's Visit to the Eagle's Nest and Konigssee",
+    category: "stories",
+    description: "A mountain-and-lake picture book from Vera and Andrew's Germany adventure.",
+    href: "stories/eagles-nest-konigssee/",
+    status: "ready"
+  },
+  {
     title: "Vera's Potty Tracker",
     category: "tools",
     description: "A weekly potty-training tracker with ducks, simple buttons, reset, test sound, and undo.",
