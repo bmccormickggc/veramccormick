@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Vera's Golden Duck Tracker</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-rounded, "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif;
+      color: #27323a;
+      background:
+        radial-gradient(circle at top left, rgba(255, 236, 153, 0.55), transparent 30rem),
+        linear-gradient(180deg, #e8f8ff 0%, #f7fbef 48%, #fff6dc 100%);
+    }
+    button, input {
+      font: inherit;
+    }
+    button {
+      border: 0;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .app {
+      width: min(1160px, 100%);
+      margin: 0 auto;
+      padding: 16px;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .home-link {
+      color: #47626e;
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 800;
+      padding: 9px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(79, 126, 148, 0.18);
+    }
+    .title-block {
+      text-align: center;
+      flex: 1;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(25px, 5vw, 44px);
+      color: #18566f;
+      letter-spacing: 0;
+      line-height: 1;
+    }
+    .subtitle {
+      margin: 5px 0 0;
+      color: #5f7d86;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .sound-toggle {
+      width: 46px;
+      height: 46px;
+      border-radius: 999px;
+      background: #ffffff;
+      color: #18566f;
+      border: 1px solid rgba(79, 126, 148, 0.18);
+      box-shadow: 0 8px 18px rgba(39, 50, 58, 0.08);
+      font-size: 20px;
+      font-weight: 900;
+    }
+    .summary-band {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 12px;
+      align-items: stretch;
+      margin-bottom: 14px;
+    }
+    .score-panel {
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid rgba(79, 126, 148, 0.16);
+      border-radius: 8px;
+      padding: 14px;
+      box-shadow: 0 10px 24px rgba(39, 50, 58, 0.07);
+    }
+    .score-label {
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      color: #6b8289;
+    }
+    .score-value {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      font-size: 34px;
+      font-weight: 900;
+      color: #18566f;
+    }
+    .score-detail {
+      margin-top: 3px;
+      color: #6b8289;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .date-card {
+      min-width: min(390px, 100%);
+      background: #18566f;
+      color: #ffffff;
+      border-radius: 8px;
+      padding: 13px;
+      box-shadow: 0 14px 34px rgba(24, 86, 111, 0.22);
+    }
+    .date-nav {
+      display: grid;
+      grid-template-columns: 44px 1fr 44px;
+      gap: 8px;
+      align-items: center;
+    }
+    .nav-btn {
+      height: 44px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.16);
+      color: #ffffff;
+      font-size: 24px;
+      font-weight: 900;
+    }
+    .date-title {
+      text-align: center;
+      font-weight: 900;
+      font-size: 20px;
+      line-height: 1.15;
+    }
+    .date-subtitle {
+      margin-top: 3px;
+      text-align: center;
+      color: #bfe5ef;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .jump-row {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .mini-btn {
+      min-height: 36px;
+      padding: 8px 13px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.18);
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 14px;
+      align-items: start;
+    }
+    .matrix {
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(79, 126, 148, 0.16);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 10px 24px rgba(39, 50, 58, 0.07);
+    }
+    .matrix-head,
+    .goal-row {
+      display: grid;
+      grid-template-columns: minmax(150px, 1.1fr) minmax(170px, 1fr) minmax(170px, 1fr);
+      align-items: stretch;
+    }
+    .matrix-head {
+      background: #f0f9fb;
+      color: #46616b;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      border-bottom: 1px solid rgba(79, 126, 148, 0.16);
+    }
+    .matrix-head div,
+    .goal-cell {
+      padding: 12px;
+      border-right: 1px solid rgba(79, 126, 148, 0.14);
+    }
+    .matrix-head div:last-child,
+    .goal-cell:last-child {
+      border-right: 0;
+    }
+    .goal-row {
+      border-bottom: 1px solid rgba(79, 126, 148, 0.13);
+    }
+    .goal-row:last-child {
+      border-bottom: 0;
+    }
+    .goal-name {
+      font-size: 18px;
+      line-height: 1.15;
+      font-weight: 900;
+      color: #18566f;
+    }
+    .goal-note {
+      margin-top: 6px;
+      color: #6b8289;
+      font-size: 13px;
+      line-height: 1.25;
+      font-weight: 700;
+    }
+    .action-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 132px;
+    }
+    .behavior-label {
+      flex: 1;
+      color: #405763;
+      font-size: 14px;
+      line-height: 1.22;
+      font-weight: 800;
+    }
+    .count-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      min-height: 28px;
+      align-items: center;
+    }
+    .duck-icon {
+      width: 25px;
+      height: 25px;
+      display: inline-block;
+      filter: drop-shadow(0 2px 1px rgba(147, 100, 0, 0.15));
+      animation: duckBob 2.7s ease-in-out infinite;
+    }
+    .duck-icon svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    @keyframes duckBob {
+      0%, 100% { transform: translateY(0) rotate(-3deg); }
+      50% { transform: translateY(-2px) rotate(3deg); }
+    }
+    .x-mark {
+      width: 25px;
+      height: 25px;
+      border-radius: 999px;
+      display: inline-grid;
+      place-items: center;
+      background: #ffe8e8;
+      color: #d02222;
+      border: 2px solid #ee5b5b;
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1;
+      box-shadow: 0 2px 0 rgba(182, 32, 32, 0.18);
+    }
+    .add-btn,
+    .x-btn {
+      min-height: 45px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    .add-btn:active,
+    .x-btn:active,
+    .nav-btn:active,
+    .mini-btn:active {
+      transform: scale(0.97);
+    }
+    .add-btn {
+      background: linear-gradient(180deg, #ffe777 0%, #f5b82e 100%);
+      color: #624400;
+      box-shadow: 0 6px 0 #c48a16;
+    }
+    .x-btn {
+      background: linear-gradient(180deg, #ff7878 0%, #e13232 100%);
+      color: #ffffff;
+      box-shadow: 0 6px 0 #a61717;
+    }
+    .side-panel {
+      display: grid;
+      gap: 14px;
+    }
+    .calendar-panel,
+    .editor-panel {
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(79, 126, 148, 0.16);
+      border-radius: 8px;
+      padding: 14px;
+      box-shadow: 0 10px 24px rgba(39, 50, 58, 0.07);
+    }
+    .panel-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      color: #18566f;
+      font-size: 17px;
+      font-weight: 900;
+    }
+    .month-switch {
+      display: flex;
+      gap: 6px;
+    }
+    .small-round {
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      background: #e7f5f8;
+      color: #18566f;
+      font-weight: 900;
+    }
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+    }
+    .weekday {
+      text-align: center;
+      font-size: 11px;
+      color: #6b8289;
+      font-weight: 900;
+      padding-bottom: 3px;
+    }
+    .day-cell {
+      aspect-ratio: 1;
+      border-radius: 8px;
+      background: #f4fbfd;
+      color: #42606b;
+      border: 1px solid rgba(79, 126, 148, 0.11);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      font-size: 12px;
+      font-weight: 900;
+      padding: 2px;
+    }
+    .day-cell.is-outside {
+      opacity: 0.38;
+    }
+    .day-cell.is-selected {
+      background: #18566f;
+      color: #ffffff;
+      border-color: #18566f;
+      box-shadow: 0 7px 16px rgba(24, 86, 111, 0.24);
+    }
+    .day-cell.is-today:not(.is-selected) {
+      outline: 2px solid #f2bd2f;
+    }
+    .day-stats {
+      display: flex;
+      gap: 3px;
+      align-items: center;
+      font-size: 10px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .field {
+      display: grid;
+      gap: 5px;
+      margin-bottom: 9px;
+    }
+    .field label {
+      font-size: 12px;
+      color: #6b8289;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .field input {
+      min-height: 41px;
+      border-radius: 8px;
+      border: 1px solid rgba(79, 126, 148, 0.2);
+      padding: 9px 10px;
+      background: #ffffff;
+      color: #27323a;
+      font-weight: 800;
+    }
+    .wide-btn {
+      width: 100%;
+      min-height: 42px;
+      border-radius: 8px;
+      background: #18566f;
+      color: #ffffff;
+      font-weight: 900;
+      margin-top: 2px;
+    }
+    .utility-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .utility-btn {
+      min-height: 39px;
+      border-radius: 8px;
+      background: #f0f6f8;
+      color: #46616b;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    .delete-goals {
+      margin-top: 10px;
+      display: grid;
+      gap: 6px;
+    }
+    .custom-goal-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+      align-items: center;
+      color: #536e77;
+      font-size: 13px;
+      font-weight: 800;
+      padding: 7px 0;
+      border-top: 1px solid rgba(79, 126, 148, 0.12);
+    }
+    .remove-goal {
+      width: 31px;
+      height: 31px;
+      border-radius: 999px;
+      background: #ffe8e8;
+      color: #c62525;
+      font-weight: 900;
+    }
+    .toast {
+      position: fixed;
+      left: 50%;
+      top: 18px;
+      transform: translateX(-50%) translateY(-140%);
+      min-width: min(420px, calc(100vw - 28px));
+      padding: 14px 16px;
+      border-radius: 8px;
+      background: #18566f;
+      color: #ffffff;
+      text-align: center;
+      font-size: 20px;
+      font-weight: 900;
+      box-shadow: 0 18px 40px rgba(24, 86, 111, 0.26);
+      z-index: 40;
+      transition: transform 0.24s ease;
+      pointer-events: none;
+    }
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+    .big-x {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      width: 150px;
+      height: 150px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: rgba(255, 232, 232, 0.94);
+      color: #d02222;
+      border: 8px solid #ee5b5b;
+      font-size: 112px;
+      font-weight: 900;
+      line-height: 1;
+      z-index: 35;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .big-x.show {
+      animation: penaltyPop 0.75s ease forwards;
+    }
+    @keyframes penaltyPop {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(0) rotate(-15deg); }
+      25% { opacity: 1; transform: translate(-50%, -50%) scale(1.15) rotate(9deg); }
+      45% { transform: translate(-50%, -50%) scale(1) rotate(-7deg); }
+      70% { opacity: 1; transform: translate(-50%, -50%) scale(1.06) rotate(0); }
+      100% { opacity: 0; transform: translate(-50%, -50%) scale(0.82) rotate(0); }
+    }
+    .flying-duck,
+    .confetti {
+      position: fixed;
+      pointer-events: none;
+      z-index: 38;
+    }
+    .flying-duck {
+      width: 44px;
+      height: 44px;
+      animation: flyDuck 1.45s ease-out forwards;
+    }
+    @keyframes flyDuck {
+      0% { opacity: 0; transform: translateY(28px) scale(0.55) rotate(-12deg); }
+      22% { opacity: 1; }
+      100% { opacity: 0; transform: translateY(-170px) scale(1.18) rotate(12deg); }
+    }
+    .confetti {
+      width: 9px;
+      height: 14px;
+      border-radius: 3px;
+      animation: confettiDrop 2.4s ease-in forwards;
+    }
+    @keyframes confettiDrop {
+      0% { opacity: 0; transform: translateY(-20px) rotate(0); }
+      15% { opacity: 1; }
+      100% { opacity: 0; transform: translateY(105vh) rotate(420deg); }
+    }
+    @media (max-width: 920px) {
+      .summary-band,
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      .summary-band .score-panel {
+        min-height: 92px;
+      }
+      .date-card {
+        min-width: 0;
+        order: -1;
+      }
+    }
+    @media (max-width: 680px) {
+      .app { padding: 10px; }
+      .topbar {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+      }
+      .home-link {
+        font-size: 0;
+        width: 44px;
+        height: 44px;
+        display: grid;
+        place-items: center;
+        padding: 0;
+      }
+      .home-link::before {
+        content: "<";
+        font-size: 22px;
+      }
+      .matrix {
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        overflow: visible;
+      }
+      .matrix-head { display: none; }
+      .goal-row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(79, 126, 148, 0.16);
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 10px;
+        box-shadow: 0 8px 20px rgba(39, 50, 58, 0.06);
+      }
+      .goal-cell {
+        padding: 0;
+        border-right: 0;
+      }
+      .action-cell {
+        min-height: 0;
+      }
+      .score-value { font-size: 30px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <div class="topbar">
+      <a class="home-link" href="../../">Library</a>
+      <div class="title-block">
+        <h1>Golden Duck Tracker</h1>
+        <p class="subtitle">Vera's daily wins</p>
+      </div>
+      <button class="sound-toggle" id="soundToggle" type="button" aria-label="Toggle sound">S</button>
+    </div>
+
+    <section class="summary-band" aria-label="Daily summary">
+      <div class="score-panel">
+        <div class="score-label">Golden ducks today</div>
+        <div class="score-value"><span id="duckTotal">0</span><span id="duckTotalIcon"></span></div>
+        <div class="score-detail" id="weekDuckTotal">0 this week</div>
+      </div>
+      <div class="date-card">
+        <div class="date-nav">
+          <button class="nav-btn" id="prevDay" type="button" aria-label="Previous day">&lt;</button>
+          <div>
+            <div class="date-title" id="dateTitle"></div>
+            <div class="date-subtitle" id="dateSubtitle"></div>
+          </div>
+          <button class="nav-btn" id="nextDay" type="button" aria-label="Next day">&gt;</button>
+        </div>
+        <div class="jump-row">
+          <button class="mini-btn" id="todayBtn" type="button">Today</button>
+          <button class="mini-btn" id="undoBtn" type="button">Undo</button>
+          <button class="mini-btn" id="resetDayBtn" type="button">Reset Day</button>
+        </div>
+      </div>
+      <div class="score-panel">
+        <div class="score-label">Red X marks today</div>
+        <div class="score-value"><span id="xTotal">0</span><span class="x-mark">X</span></div>
+        <div class="score-detail" id="weekXTotal">0 this week</div>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="matrix" aria-label="Daily behavior tracker">
+        <div class="matrix-head">
+          <div>Goal</div>
+          <div>Golden duck</div>
+          <div>Red X</div>
+        </div>
+        <div id="goalRows"></div>
+      </div>
+
+      <aside class="side-panel">
+        <section class="calendar-panel" aria-label="Calendar">
+          <div class="panel-title">
+            <span id="monthTitle"></span>
+            <span class="month-switch">
+              <button class="small-round" id="prevMonth" type="button" aria-label="Previous month">&lt;</button>
+              <button class="small-round" id="nextMonth" type="button" aria-label="Next month">&gt;</button>
+            </span>
+          </div>
+          <div class="calendar-grid" id="calendarGrid"></div>
+        </section>
+
+        <section class="editor-panel" aria-label="Add goal">
+          <div class="panel-title">Add A Goal</div>
+          <div class="field">
+            <label for="newGoalName">Goal</label>
+            <input id="newGoalName" type="text" maxlength="42" placeholder="Example: clean up toys">
+          </div>
+          <div class="field">
+            <label for="newGoalPositive">Golden duck behavior</label>
+            <input id="newGoalPositive" type="text" maxlength="80" placeholder="Cleaned up when asked">
+          </div>
+          <div class="field">
+            <label for="newGoalNegative">Red X behavior</label>
+            <input id="newGoalNegative" type="text" maxlength="80" placeholder="Refused cleanup">
+          </div>
+          <button class="wide-btn" id="addGoalBtn" type="button">Add Goal</button>
+          <div class="utility-row">
+            <button class="utility-btn" id="exportBtn" type="button">Export</button>
+            <button class="utility-btn" id="clearCustomBtn" type="button">Clear Custom</button>
+          </div>
+          <div class="delete-goals" id="customGoalList"></div>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" aria-live="polite"></div>
+  <div class="big-x" id="bigX">X</div>
+
+  <script>
+    (function () {
+      var STORAGE_KEY = "veraGoldenDuckTracker.v1";
+      var SOUND_KEY = "veraGoldenDuckTracker.sound";
+      var defaultGoals = [
+        {
+          id: "share-andrew",
+          name: "Sharing With Andrew",
+          note: "Kind hands and taking turns.",
+          positive: "Shared with Andrew or gave him a turn.",
+          negative: "Grabbed, blocked, or refused to share."
+        },
+        {
+          id: "nap-calm",
+          name: "Nap Without Whining",
+          note: "Calm body before rest.",
+          positive: "Went down for nap without whining.",
+          negative: "Whined, argued, or melted down at nap."
+        },
+        {
+          id: "nap-time",
+          name: "Nap On Time",
+          note: "Started rest when it was time.",
+          positive: "Started nap on time.",
+          negative: "Delayed nap past the plan."
+        },
+        {
+          id: "bedtime-time",
+          name: "Bedtime On Time",
+          note: "Moved toward sleep when bedtime started.",
+          positive: "Went to bed on time.",
+          negative: "Stalled or fought bedtime."
+        },
+        {
+          id: "stay-room",
+          name: "Stayed In Room",
+          note: "Resting in her own space.",
+          positive: "Stayed in her room after bedtime.",
+          negative: "Came out after bedtime."
+        },
+        {
+          id: "kind",
+          name: "Being Kind",
+          note: "Sweet words, gentle hands.",
+          positive: "Used kind words or gentle hands.",
+          negative: "Used mean words or rough hands."
+        },
+        {
+          id: "deep-breaths",
+          name: "Three Deep Breaths",
+          note: "Calm choice when upset.",
+          positive: "Took three deep breaths instead of screaming.",
+          negative: "Screamed when upset."
+        },
+        {
+          id: "listen",
+          name: "Listening",
+          note: "Responding without a big fight.",
+          positive: "Listened the first or second time.",
+          negative: "Ignored or refused a clear ask."
+        }
+      ];
+      var affirmations = [
+        "Golden duck!",
+        "Great choice, Vera!",
+        "That was kind!",
+        "Big girl choice!",
+        "You did it!",
+        "Dada is proud!",
+        "Excellent calm body!",
+        "Sweet work, Vera!"
+      ];
+
+      var state = loadState();
+      var selected = startOfDay(new Date());
+      var calendarMonth = new Date(selected.getFullYear(), selected.getMonth(), 1);
+      var audioCtx = null;
+      var soundOn = localStorage.getItem(SOUND_KEY) !== "off";
+      var lastAction = null;
+
+      var els = {
+        goalRows: document.getElementById("goalRows"),
+        dateTitle: document.getElementById("dateTitle"),
+        dateSubtitle: document.getElementById("dateSubtitle"),
+        duckTotal: document.getElementById("duckTotal"),
+        duckTotalIcon: document.getElementById("duckTotalIcon"),
+        xTotal: document.getElementById("xTotal"),
+        weekDuckTotal: document.getElementById("weekDuckTotal"),
+        weekXTotal: document.getElementById("weekXTotal"),
+        monthTitle: document.getElementById("monthTitle"),
+        calendarGrid: document.getElementById("calendarGrid"),
+        toast: document.getElementById("toast"),
+        bigX: document.getElementById("bigX"),
+        soundToggle: document.getElementById("soundToggle"),
+        newGoalName: document.getElementById("newGoalName"),
+        newGoalPositive: document.getElementById("newGoalPositive"),
+        newGoalNegative: document.getElementById("newGoalNegative"),
+        customGoalList: document.getElementById("customGoalList")
+      };
+
+      function duckSvg() {
+        return '<span class="duck-icon" aria-hidden="true"><svg viewBox="0 0 64 64" role="img">' +
+          '<path d="M17 39c1.8-9.8 11.3-17 22-14.2 7.3 1.9 12.9 7.9 14.1 15.4.6 3.8-2.3 7.3-6.1 7.3H23.2c-4 0-7-3.8-6.2-8.5Z" fill="#f6c431"/>' +
+          '<path d="M12.3 35.2c-2.6-2.7-3.2-6.5-1.3-8.8 2.1-2.5 6.5-1.8 9.4 1.4l7.4 8.1-10.1 5-5.4-5.7Z" fill="#f0b62d"/>' +
+          '<path d="M32.8 21.2c0-7.2 5.2-12.7 12.2-12.7 6.7 0 11.8 4.9 11.8 11.4 0 6.1-4.8 10.8-11.1 10.8h-8.5c-2.5 0-4.4-1.9-4.4-4.3v-5.2Z" fill="#ffd85a"/>' +
+          '<path d="M55.4 19.1h7.1c1.1 0 1.7 1.4.9 2.2l-5 4.9c-.8.8-2.2.5-2.7-.5l-2.1-4.4c-.5-1.1.3-2.2 1.8-2.2Z" fill="#f58528"/>' +
+          '<circle cx="47.7" cy="17.7" r="2.3" fill="#25323a"/>' +
+          '<path d="M25 43.6c5 3.1 15.3 3.2 22-.6" fill="none" stroke="#d99b12" stroke-width="2.8" stroke-linecap="round"/>' +
+          '</svg></span>';
+      }
+
+      function loadState() {
+        try {
+          var parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+          return {
+            days: parsed.days || {},
+            customGoals: Array.isArray(parsed.customGoals) ? parsed.customGoals : []
+          };
+        } catch (e) {
+          return { days: {}, customGoals: [] };
+        }
+      }
+
+      function saveState() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+
+      function startOfDay(date) {
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      }
+
+      function dateKey(date) {
+        var y = date.getFullYear();
+        var m = String(date.getMonth() + 1).padStart(2, "0");
+        var d = String(date.getDate()).padStart(2, "0");
+        return y + "-" + m + "-" + d;
+      }
+
+      function allGoals() {
+        return defaultGoals.concat(state.customGoals);
+      }
+
+      function dayData(date) {
+        var key = dateKey(date);
+        if (!state.days[key]) state.days[key] = {};
+        return state.days[key];
+      }
+
+      function goalData(date, goalId) {
+        var day = dayData(date);
+        if (!day[goalId]) day[goalId] = { ducks: 0, x: 0 };
+        return day[goalId];
+      }
+
+      function readGoalData(date, goalId) {
+        var day = state.days[dateKey(date)] || {};
+        return day[goalId] || { ducks: 0, x: 0 };
+      }
+
+      function totalsForDate(date) {
+        var day = state.days[dateKey(date)] || {};
+        return Object.keys(day).reduce(function (acc, id) {
+          acc.ducks += day[id].ducks || 0;
+          acc.x += day[id].x || 0;
+          return acc;
+        }, { ducks: 0, x: 0 });
+      }
+
+      function totalsForRange(start, days) {
+        var totals = { ducks: 0, x: 0 };
+        for (var i = 0; i < days; i++) {
+          var d = new Date(start);
+          d.setDate(start.getDate() + i);
+          var t = totalsForDate(d);
+          totals.ducks += t.ducks;
+          totals.x += t.x;
+        }
+        return totals;
+      }
+
+      function weekStart(date) {
+        var d = startOfDay(date);
+        d.setDate(d.getDate() - d.getDay());
+        return d;
+      }
+
+      function formatDateTitle(date) {
+        return date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+      }
+
+      function isSameDay(a, b) {
+        return dateKey(a) === dateKey(b);
+      }
+
+      function render() {
+        renderHeader();
+        renderRows();
+        renderCalendar();
+        renderCustomGoals();
+        saveState();
+      }
+
+      function renderHeader() {
+        var today = startOfDay(new Date());
+        var totals = totalsForDate(selected);
+        var weekTotals = totalsForRange(weekStart(selected), 7);
+        els.dateTitle.textContent = formatDateTitle(selected);
+        els.dateSubtitle.textContent = isSameDay(selected, today) ? "Today" : selected.toLocaleDateString();
+        els.duckTotal.textContent = totals.ducks;
+        els.xTotal.textContent = totals.x;
+        els.duckTotalIcon.innerHTML = duckSvg();
+        els.weekDuckTotal.textContent = weekTotals.ducks + " this week";
+        els.weekXTotal.textContent = weekTotals.x + " this week";
+        els.soundToggle.textContent = soundOn ? "S" : "M";
+        els.soundToggle.setAttribute("aria-label", soundOn ? "Sound on" : "Sound muted");
+      }
+
+      function renderRows() {
+        els.goalRows.innerHTML = "";
+        allGoals().forEach(function (goal) {
+          var counts = readGoalData(selected, goal.id);
+          var row = document.createElement("div");
+          row.className = "goal-row";
+          row.innerHTML =
+            '<div class="goal-cell">' +
+              '<div class="goal-name"></div>' +
+              '<div class="goal-note"></div>' +
+            '</div>' +
+            '<div class="goal-cell action-cell">' +
+              '<div class="behavior-label"></div>' +
+              '<div class="count-line duck-count"></div>' +
+              '<button class="add-btn" type="button">' + duckSvg() + '<span>Golden Duck</span></button>' +
+            '</div>' +
+            '<div class="goal-cell action-cell">' +
+              '<div class="behavior-label"></div>' +
+              '<div class="count-line x-count"></div>' +
+              '<button class="x-btn" type="button"><span class="x-mark">X</span><span>Red X</span></button>' +
+            '</div>';
+          row.querySelector(".goal-name").textContent = goal.name;
+          row.querySelector(".goal-note").textContent = goal.note || "";
+          row.querySelectorAll(".behavior-label")[0].textContent = goal.positive;
+          row.querySelectorAll(".behavior-label")[1].textContent = goal.negative;
+          renderDuckCount(row.querySelector(".duck-count"), counts.ducks);
+          renderXCount(row.querySelector(".x-count"), counts.x);
+          row.querySelector(".add-btn").addEventListener("click", function () { addDuck(goal.id); });
+          row.querySelector(".x-btn").addEventListener("click", function () { addX(goal.id); });
+          els.goalRows.appendChild(row);
+        });
+      }
+
+      function renderDuckCount(node, count) {
+        node.innerHTML = "";
+        if (!count) {
+          node.textContent = "0";
+          return;
+        }
+        for (var i = 0; i < Math.min(count, 8); i++) {
+          node.insertAdjacentHTML("beforeend", duckSvg());
+        }
+        if (count > 8) {
+          var more = document.createElement("strong");
+          more.textContent = "+" + (count - 8);
+          node.appendChild(more);
+        }
+      }
+
+      function renderXCount(node, count) {
+        node.innerHTML = "";
+        if (!count) {
+          node.textContent = "0";
+          return;
+        }
+        for (var i = 0; i < Math.min(count, 8); i++) {
+          var x = document.createElement("span");
+          x.className = "x-mark";
+          x.textContent = "X";
+          node.appendChild(x);
+        }
+        if (count > 8) {
+          var more = document.createElement("strong");
+          more.textContent = "+" + (count - 8);
+          node.appendChild(more);
+        }
+      }
+
+      function renderCalendar() {
+        els.monthTitle.textContent = calendarMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+        els.calendarGrid.innerHTML = "";
+        ["S", "M", "T", "W", "T", "F", "S"].forEach(function (label) {
+          var cell = document.createElement("div");
+          cell.className = "weekday";
+          cell.textContent = label;
+          els.calendarGrid.appendChild(cell);
+        });
+        var first = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+        var start = new Date(first);
+        start.setDate(1 - first.getDay());
+        var today = startOfDay(new Date());
+        for (var i = 0; i < 42; i++) {
+          var date = new Date(start);
+          date.setDate(start.getDate() + i);
+          var totals = totalsForDate(date);
+          var cell = document.createElement("button");
+          cell.type = "button";
+          cell.className = "day-cell";
+          if (date.getMonth() !== calendarMonth.getMonth()) cell.classList.add("is-outside");
+          if (isSameDay(date, selected)) cell.classList.add("is-selected");
+          if (isSameDay(date, today)) cell.classList.add("is-today");
+          cell.innerHTML = '<span>' + date.getDate() + '</span><span class="day-stats">' +
+            totals.ducks + 'D ' + totals.x + 'X</span>';
+          cell.addEventListener("click", (function (d) {
+            return function () {
+              selected = startOfDay(d);
+              calendarMonth = new Date(selected.getFullYear(), selected.getMonth(), 1);
+              render();
+            };
+          })(date));
+          els.calendarGrid.appendChild(cell);
+        }
+      }
+
+      function renderCustomGoals() {
+        els.customGoalList.innerHTML = "";
+        state.customGoals.forEach(function (goal) {
+          var row = document.createElement("div");
+          row.className = "custom-goal-row";
+          row.innerHTML = '<span></span><button class="remove-goal" type="button" aria-label="Remove goal">X</button>';
+          row.querySelector("span").textContent = goal.name;
+          row.querySelector("button").addEventListener("click", function () {
+            if (!confirm("Remove this custom goal? Existing history stays saved.")) return;
+            state.customGoals = state.customGoals.filter(function (candidate) { return candidate.id !== goal.id; });
+            render();
+          });
+          els.customGoalList.appendChild(row);
+        });
+      }
+
+      function addDuck(goalId) {
+        initAudio();
+        goalData(selected, goalId).ducks += 1;
+        lastAction = { date: dateKey(selected), goalId: goalId, type: "ducks" };
+        playDuckReward();
+        showToast(affirmations[Math.floor(Math.random() * affirmations.length)]);
+        burstDucks();
+        burstConfetti(24);
+        render();
+      }
+
+      function addX(goalId) {
+        initAudio();
+        goalData(selected, goalId).x += 1;
+        lastAction = { date: dateKey(selected), goalId: goalId, type: "x" };
+        playBuzzer();
+        showBigX();
+        showToast("Try again next time.");
+        render();
+      }
+
+      function undo() {
+        if (!lastAction) {
+          showToast("Nothing to undo.");
+          return;
+        }
+        var day = state.days[lastAction.date];
+        if (day && day[lastAction.goalId] && day[lastAction.goalId][lastAction.type] > 0) {
+          day[lastAction.goalId][lastAction.type] -= 1;
+          showToast("Undone.");
+          playTap();
+        }
+        lastAction = null;
+        render();
+      }
+
+      function addCustomGoal() {
+        var name = els.newGoalName.value.trim();
+        var positive = els.newGoalPositive.value.trim();
+        var negative = els.newGoalNegative.value.trim();
+        if (!name || !positive || !negative) {
+          showToast("Fill in all three fields.");
+          return;
+        }
+        state.customGoals.push({
+          id: "custom-" + Date.now(),
+          name: name,
+          note: "Custom tracker.",
+          positive: positive,
+          negative: negative
+        });
+        els.newGoalName.value = "";
+        els.newGoalPositive.value = "";
+        els.newGoalNegative.value = "";
+        showToast("Goal added.");
+        playTap();
+        render();
+      }
+
+      function resetDay() {
+        if (!confirm("Reset this day?")) return;
+        delete state.days[dateKey(selected)];
+        lastAction = null;
+        showToast("Day reset.");
+        playTap();
+        render();
+      }
+
+      function exportData() {
+        var rows = [["date", "goal", "golden_ducks", "red_x"]];
+        var goalsById = {};
+        allGoals().forEach(function (goal) { goalsById[goal.id] = goal.name; });
+        Object.keys(state.days).sort().forEach(function (key) {
+          Object.keys(state.days[key]).forEach(function (goalId) {
+            var item = state.days[key][goalId];
+            rows.push([key, goalsById[goalId] || goalId, item.ducks || 0, item.x || 0]);
+          });
+        });
+        var csv = rows.map(function (row) {
+          return row.map(function (cell) {
+            return '"' + String(cell).replace(/"/g, '""') + '"';
+          }).join(",");
+        }).join("\n");
+        var blob = new Blob([csv], { type: "text/csv" });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "vera-golden-duck-tracker.csv";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 500);
+      }
+
+      function clearCustomGoals() {
+        if (!state.customGoals.length) {
+          showToast("No custom goals.");
+          return;
+        }
+        if (!confirm("Clear all custom goals? Existing history stays saved.")) return;
+        state.customGoals = [];
+        showToast("Custom goals cleared.");
+        render();
+      }
+
+      function showToast(message) {
+        els.toast.textContent = message;
+        els.toast.classList.add("show");
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(function () {
+          els.toast.classList.remove("show");
+        }, 1100);
+      }
+
+      function showBigX() {
+        els.bigX.classList.remove("show");
+        void els.bigX.offsetWidth;
+        els.bigX.classList.add("show");
+      }
+
+      function burstDucks() {
+        for (var i = 0; i < 6; i++) {
+          setTimeout(function () {
+            var duck = document.createElement("div");
+            duck.className = "flying-duck";
+            duck.style.left = (18 + Math.random() * 64) + "vw";
+            duck.style.top = (60 + Math.random() * 22) + "vh";
+            duck.innerHTML = duckSvg();
+            document.body.appendChild(duck);
+            setTimeout(function () { duck.remove(); }, 1600);
+          }, i * 80);
+        }
+      }
+
+      function burstConfetti(count) {
+        var colors = ["#f6c431", "#ffef88", "#4bb4c8", "#7bd389", "#ff7b7b", "#ffffff"];
+        for (var i = 0; i < count; i++) {
+          setTimeout(function () {
+            var piece = document.createElement("div");
+            piece.className = "confetti";
+            piece.style.left = Math.random() * 100 + "vw";
+            piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+            piece.style.animationDuration = (1.6 + Math.random() * 1.2) + "s";
+            document.body.appendChild(piece);
+            setTimeout(function () { piece.remove(); }, 3000);
+          }, i * 18);
+        }
+      }
+
+      function initAudio() {
+        if (!soundOn) return;
+        try {
+          if (!audioCtx || audioCtx.state === "closed") {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          }
+          if (audioCtx.state === "suspended") audioCtx.resume();
+        } catch (e) {}
+      }
+
+      function tone(freq, start, duration, type, volume) {
+        if (!soundOn || !audioCtx) return;
+        var osc = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = type || "sine";
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime + start);
+        gain.gain.setValueAtTime(0.01, audioCtx.currentTime + start);
+        gain.gain.linearRampToValueAtTime(volume || 0.12, audioCtx.currentTime + start + 0.025);
+        gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + start + duration);
+        osc.start(audioCtx.currentTime + start);
+        osc.stop(audioCtx.currentTime + start + duration + 0.04);
+      }
+
+      function playDuckReward() {
+        if (!soundOn) return;
+        initAudio();
+        [523, 659, 784, 1047].forEach(function (freq, i) {
+          tone(freq, i * 0.09, 0.32, "sine", 0.14);
+        });
+        setTimeout(function () {
+          [659, 784, 988].forEach(function (freq, i) {
+            tone(freq, i * 0.055, 0.2, "triangle", 0.08);
+          });
+        }, 450);
+      }
+
+      function playBuzzer() {
+        if (!soundOn) return;
+        initAudio();
+        tone(104, 0, 0.34, "square", 0.2);
+        tone(117, 0, 0.34, "sawtooth", 0.14);
+      }
+
+      function playTap() {
+        if (!soundOn) return;
+        initAudio();
+        tone(440, 0, 0.12, "sine", 0.08);
+      }
+
+      document.getElementById("prevDay").addEventListener("click", function () {
+        selected.setDate(selected.getDate() - 1);
+        calendarMonth = new Date(selected.getFullYear(), selected.getMonth(), 1);
+        render();
+      });
+      document.getElementById("nextDay").addEventListener("click", function () {
+        selected.setDate(selected.getDate() + 1);
+        calendarMonth = new Date(selected.getFullYear(), selected.getMonth(), 1);
+        render();
+      });
+      document.getElementById("todayBtn").addEventListener("click", function () {
+        selected = startOfDay(new Date());
+        calendarMonth = new Date(selected.getFullYear(), selected.getMonth(), 1);
+        render();
+      });
+      document.getElementById("undoBtn").addEventListener("click", undo);
+      document.getElementById("resetDayBtn").addEventListener("click", resetDay);
+      document.getElementById("prevMonth").addEventListener("click", function () {
+        calendarMonth.setMonth(calendarMonth.getMonth() - 1);
+        render();
+      });
+      document.getElementById("nextMonth").addEventListener("click", function () {
+        calendarMonth.setMonth(calendarMonth.getMonth() + 1);
+        render();
+      });
+      document.getElementById("addGoalBtn").addEventListener("click", addCustomGoal);
+      document.getElementById("exportBtn").addEventListener("click", exportData);
+      document.getElementById("clearCustomBtn").addEventListener("click", clearCustomGoals);
+      els.soundToggle.addEventListener("click", function () {
+        soundOn = !soundOn;
+        localStorage.setItem(SOUND_KEY, soundOn ? "on" : "off");
+        if (soundOn) {
+          initAudio();
+          playTap();
+        }
+        renderHeader();
+      });
+      document.addEventListener("click", initAudio, { once: true });
+      document.addEventListener("touchstart", initAudio, { once: true });
+
+      render();
+    })();
+  </script>
+</body>
+</html>

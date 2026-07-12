@@ -21,6 +21,13 @@ window.VERA_CONTENT = [
     status: "ready"
   },
   {
+    title: "Vera's Golden Duck Tracker",
+    category: "tools",
+    description: "A daily behavior matrix with golden ducks for wins and red X marks for rough moments.",
+    href: "tools/golden-duck-tracker/",
+    status: "ready"
+  },
+  {
     title: "Vera's Bedtime",
     category: "tools",
     description: "A calm seven-step bedtime routine app for moving toward sleep.",
