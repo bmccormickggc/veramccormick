@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Bear's Big Adventure</title>
+  <style>
+    :root {
+      --paper: #fffaf0;
+      --ink: #24313b;
+      --muted: #6d7c86;
+      --leaf: #2f7d54;
+      --sky: #d9f0ff;
+      --shadow: rgba(38, 50, 56, .22);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: linear-gradient(180deg, var(--sky), #f8f1df);
+      color: var(--ink);
+      font-family: ui-rounded, "Segoe UI", system-ui, sans-serif;
+      overflow: hidden;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .reader {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 10px;
+      padding: 14px clamp(10px, 3vw, 22px) 18px;
+    }
+
+    .topbar,
+    .controls {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .home {
+      color: var(--leaf);
+      text-decoration: none;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(18px, 3vw, 26px);
+      line-height: 1.1;
+      text-align: center;
+      letter-spacing: 0;
+    }
+
+    .count {
+      min-width: 74px;
+      text-align: right;
+      color: var(--muted);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stage {
+      width: min(1120px, 100%);
+      min-height: 0;
+      margin: 0 auto;
+      display: grid;
+      place-items: center;
+      perspective: 1800px;
+      touch-action: pan-y;
+    }
+
+    .book {
+      position: relative;
+      width: min(100%, calc((100vh - 146px) * 1.235));
+      aspect-ratio: 1512 / 1224;
+      border-radius: 8px;
+      background: var(--paper);
+      box-shadow: 0 20px 48px var(--shadow), 0 2px 0 rgba(255, 255, 255, .9) inset;
+      overflow: hidden;
+    }
+
+    .page {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transform: translateX(24px) scale(.985);
+      transition: opacity .22s ease, transform .32s ease;
+      transform-origin: center right;
+      background: var(--paper);
+    }
+
+    .page.active {
+      opacity: 1;
+      transform: translateX(0) rotateY(0) scale(1);
+      z-index: 2;
+    }
+
+    .page.exit-left {
+      opacity: 0;
+      transform: translateX(-42px) rotateY(-12deg) scale(.985);
+      z-index: 1;
+    }
+
+    .page.exit-right {
+      opacity: 0;
+      transform: translateX(42px) rotateY(12deg) scale(.985);
+      z-index: 1;
+    }
+
+    .page img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+      background: var(--paper);
+      -webkit-user-drag: none;
+      user-select: none;
+    }
+
+    .nav {
+      width: 46px;
+      height: 46px;
+      border: 0;
+      border-radius: 50%;
+      background: #ffffffd9;
+      color: var(--leaf);
+      font-size: 28px;
+      line-height: 1;
+      font-weight: 900;
+      box-shadow: 0 8px 20px rgba(38, 50, 56, .16);
+      cursor: pointer;
+    }
+
+    .nav:disabled {
+      opacity: .35;
+      cursor: default;
+    }
+
+    .dots {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border: 0;
+      border-radius: 50%;
+      background: rgba(47, 125, 84, .28);
+      padding: 0;
+      cursor: pointer;
+    }
+
+    .dot.active {
+      width: 24px;
+      border-radius: 999px;
+      background: var(--leaf);
+    }
+
+    @media (max-width: 640px) {
+      .reader {
+        padding: 10px 10px 14px;
+        grid-template-rows: auto 1fr auto;
+      }
+
+      .topbar {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+      }
+
+      .home {
+        font-size: 14px;
+      }
+
+      h1 {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        padding-top: 6px;
+      }
+
+      .count {
+        min-width: auto;
+      }
+
+      .book {
+        width: min(100%, calc((100vh - 158px) * 1.235));
+      }
+
+      .nav {
+        width: 44px;
+        height: 44px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="reader">
+    <header class="topbar">
+      <a class="home" href="../../">Vera's Library</a>
+      <h1>Bear's Big Adventure</h1>
+      <div class="count" id="count">1 / 9</div>
+    </header>
+
+    <section class="stage" id="stage" aria-label="Story pages">
+      <div class="book" id="book"></div>
+    </section>
+
+    <footer class="controls">
+      <button class="nav" id="prev" type="button" aria-label="Previous page">&#8249;</button>
+      <div class="dots" id="dots" aria-label="Page picker"></div>
+      <button class="nav" id="next" type="button" aria-label="Next page">&#8250;</button>
+    </footer>
+  </main>
+
+  <script>
+    const pages = [
+      "pages/page-01.webp",
+      "pages/page-02.webp",
+      "pages/page-03.webp",
+      "pages/page-04.webp",
+      "pages/page-05.webp",
+      "pages/page-06.webp",
+      "pages/page-07.webp",
+      "pages/page-08.webp",
+      "pages/page-09.webp"
+    ];
+
+    const book = document.getElementById("book");
+    const dots = document.getElementById("dots");
+    const count = document.getElementById("count");
+    const prev = document.getElementById("prev");
+    const next = document.getElementById("next");
+    const stage = document.getElementById("stage");
+
+    let index = 0;
+    let lastIndex = 0;
+    let startX = null;
+
+    pages.forEach((src, pageIndex) => {
+      const page = document.createElement("div");
+      page.className = "page";
+      const img = document.createElement("img");
+      img.src = src;
+      img.alt = `Bear's Big Adventure page ${pageIndex + 1}`;
+      img.loading = pageIndex < 2 ? "eager" : "lazy";
+      img.decoding = "async";
+      page.appendChild(img);
+      book.appendChild(page);
+
+      const dot = document.createElement("button");
+      dot.className = "dot";
+      dot.type = "button";
+      dot.setAttribute("aria-label", `Go to page ${pageIndex + 1}`);
+      dot.addEventListener("click", () => goTo(pageIndex));
+      dots.appendChild(dot);
+    });
+
+    const pageEls = Array.from(document.querySelectorAll(".page"));
+    const dotEls = Array.from(document.querySelectorAll(".dot"));
+
+    function render() {
+      pageEls.forEach((page, pageIndex) => {
+        page.classList.remove("active", "exit-left", "exit-right");
+        if (pageIndex === index) {
+          page.classList.add("active");
+        } else if (pageIndex === lastIndex && lastIndex < index) {
+          page.classList.add("exit-left");
+        } else if (pageIndex === lastIndex && lastIndex > index) {
+          page.classList.add("exit-right");
+        }
+      });
+
+      dotEls.forEach((dot, pageIndex) => {
+        dot.classList.toggle("active", pageIndex === index);
+        dot.setAttribute("aria-current", pageIndex === index ? "page" : "false");
+      });
+
+      count.textContent = `${index + 1} / ${pages.length}`;
+      prev.disabled = index === 0;
+      next.disabled = index === pages.length - 1;
+    }
+
+    function goTo(nextIndex) {
+      if (nextIndex < 0 || nextIndex >= pages.length || nextIndex === index) return;
+      lastIndex = index;
+      index = nextIndex;
+      render();
+    }
+
+    prev.addEventListener("click", () => goTo(index - 1));
+    next.addEventListener("click", () => goTo(index + 1));
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowLeft") goTo(index - 1);
+      if (event.key === "ArrowRight") goTo(index + 1);
+    });
+
+    stage.addEventListener("pointerdown", (event) => {
+      startX = event.clientX;
+    });
+
+    stage.addEventListener("pointerup", (event) => {
+      if (startX === null) return;
+      const delta = event.clientX - startX;
+      startX = null;
+      if (Math.abs(delta) < 42) return;
+      goTo(delta < 0 ? index + 1 : index - 1);
+    });
+
+    render();
+  </script>
+</body>
+</html>

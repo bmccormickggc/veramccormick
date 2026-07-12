@@ -1,0 +1,74 @@
+[
+  {
+    "src": "pages/page-01.webp",
+    "width": 1512,
+    "height": 1224,
+    "bytes": 209764,
+    "source": "Bears Big Adventure COVER.pdf",
+    "source_page": 1
+  },
+  {
+    "src": "pages/page-02.webp",
+    "width": 1512,
+    "height": 1224,
+    "bytes": 274710,
+    "source": "Bears Big Adventure INTERIOR.pdf",
+    "source_page": 1
+  },
+  {
+    "src": "pages/page-03.webp",
+    "width": 1512,
+    "height": 1224,
+    "bytes": 214434,
+    "source": "Bears Big Adventure INTERIOR.pdf",
+    "source_page": 2
+  },
+  {
+    "src": "pages/page-04.webp",
+    "width": 1512,
+    "height": 1224,
+    "bytes": 237946,
+    "source": "Bears Big Adventure INTERIOR.pdf",
+    "source_page": 3
+  },
+  {
+    "src": "pages/page-05.webp",
+    "width": 1512,
+    "height": 1224,
+    "bytes": 205468,
+    "source": "Bears Big Adventure INTERIOR.pdf",
+    "source_page": 4
+  },
+  {
+    "src": "pages/page-06.webp",
+    "width": 1512,
+    "height": 1224,
+    "bytes": 239454,
+    "source": "Bears Big Adventure INTERIOR.pdf",
+    "source_page": 5
+  },
+  {
+    "src": "pages/page-07.webp",
+    "width": 1512,
+    "height": 1224,
+    "bytes": 241012,
+    "source": "Bears Big Adventure INTERIOR.pdf",
+    "source_page": 6
+  },
+  {
+    "src": "pages/page-08.webp",
+    "width": 1512,
+    "height": 1224,
+    "bytes": 234888,
+    "source": "Bears Big Adventure INTERIOR.pdf",
+    "source_page": 7
+  },
+  {
+    "src": "pages/page-09.webp",
+    "width": 1512,
+    "height": 1224,
+    "bytes": 48618,
+    "source": "Bears Big Adventure INTERIOR.pdf",
+    "source_page": 8
+  }
+]

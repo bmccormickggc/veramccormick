@@ -1,5 +1,12 @@
 window.VERA_CONTENT = [
   {
+    title: "Bear's Big Adventure",
+    category: "stories",
+    description: "A picture book by Vera and Dada, presented as a page-by-page reader.",
+    href: "stories/bears-big-adventure/",
+    status: "ready"
+  },
+  {
     title: "Vera's Potty Tracker",
     category: "tools",
     description: "A weekly potty-training tracker with ducks, simple buttons, reset, test sound, and undo.",
