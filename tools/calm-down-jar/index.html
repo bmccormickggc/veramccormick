@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="robots" content="noindex,nofollow">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.13/html-to-image.min.js" integrity="sha512-iZ2ORl595Wx6miw+GuadDet4WQbdSWS3JLMoNfY8cRGoEFy6oT3G9IbcrBeL6AfkgpA51ETt/faX6yLV+/gFJg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+      (function() {
+        // Capture host references before any artifact code runs: Window.parent
+        // is [Replaceable] (a top-level `var parent` in artifact code would
+        // replace the accessor with a data property), and a top-level
+        // `const crypto` would shadow the global — either would otherwise
+        // silently break the bridge for artifacts that worked before.
+        const realParent = window.parent;
+        const cryptoObj = window.crypto;
+        // crypto.randomUUID exists only in Secure Contexts; fall back to a
+        // unique non-crypto id elsewhere (http://LAN-IP dev flows) —
+        // uniqueness is what the bridge needs, unpredictability is
+        // defense-in-depth on top of the source guards.
+        const newRequestId =
+          cryptoObj && typeof cryptoObj.randomUUID === "function"
+            ? function () { return cryptoObj.randomUUID(); }
+            : function () { return Date.now() + "-" + Math.random(); };
+        const originalConsole = window.console;
+        window.console = {
+          log: (...args) => {
+            originalConsole.log(...args);
+            realParent.postMessage({ type: 'console', message: args.join(' ') }, '*');
+          },
+          error: (...args) => {
+            originalConsole.error(...args);
+            realParent.postMessage({ type: 'console', message: 'Error: ' + args.join(' ') }, '*');
+          },
+          warn: (...args) => {
+            originalConsole.warn(...args);
+            realParent.postMessage({ type: 'console', message: 'Warning: ' + args.join(' ') }, '*');
+          }
+        };
+
+        // Bridge request ids are crypto-random (not sequential) so they
+        // cannot be predicted by other frames in the tab.
+        let callbacksMap = new Map();
+        let streamControllers = new Map();
+        
+        window.claude = {
+          complete: (prompt) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'claudeComplete', id, prompt }, '*');
+            });
+          }
+        };
+
+        window.storage = {
+          get: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageGet', id, key, shared }, '*');
+            });
+          },
+          set: (key, value, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageSet', id, key, value, shared }, '*');
+            });
+          },
+          delete: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageDelete', id, key, shared }, '*');
+            });
+          },
+          list: (prefix, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageList', id, prefix, shared }, '*');
+            });
+          }
+        };
+
+        let pendingBlobs = new Map();
+        URL.createObjectURL = (blob) => {
+          // Store the blob and create an ID and URL for it
+          const blobId = `blob-${Date.now()}-${Math.random()}`;
+          pendingBlobs.set(blobId, blob);
+          return `blob-request://${blobId}`;
+        };
+
+        URL.revokeObjectURL = (url) => {
+          // Remove the blob from our store
+          const blobId = url.replace("blob-request://", "");
+          pendingBlobs.delete(blobId);
+        };
+
+        const getBlobFromURL = (url) => {
+          const blobId = url.replace("blob-request://", "");
+          return pendingBlobs.get(blobId);
+        };
+
+        // Override global fetch with streaming support
+        window.fetch = (url, init = {}) => {
+          return new Promise((resolve, reject) => {
+            const id = newRequestId();
+            const channelId = `fetch-${id}-${Date.now()}`;
+            
+            callbacksMap.set(id, { 
+              resolve: (response) => {
+                // Null-body statuses: Response(stream, {status: 204}) throws
+                // per the Fetch spec, which would escape this resolver and
+                // hang the artifact's await forever.
+                if (response.status === 204 || response.status === 205 || response.status === 304) {
+                  try {
+                    resolve(new Response(null, {
+                      status: response.status,
+                      statusText: response.statusText,
+                      headers: response.headers
+                    }));
+                  } catch (err) {
+                    // Invalid statusText/header bytes can throw here too.
+                    reject(new TypeError(
+                      'Bridge fetch: unconstructable response (status ' + response.status + ')'
+                    ));
+                  }
+                  return;
+                }
+                // Create a ReadableStream for the response body
+                const stream = new ReadableStream({
+                  start(controller) {
+                    streamControllers.set(channelId, controller);
+                  },
+                  cancel() {
+                    streamControllers.delete(channelId);
+                  }
+                });
+                
+                // Create and return the Response with the stream. Response()
+                // requires status in [200, 599]; an opaque/no-cors fetch
+                // forwards status 0, which would throw here and escape the
+                // resolver, hanging the artifact's await. Surface it as a
+                // network-error-shaped rejection instead.
+                try {
+                  resolve(new Response(stream, {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: response.headers
+                  }));
+                } catch (err) {
+                  streamControllers.delete(channelId);
+                  reject(new TypeError(
+                    'Bridge fetch: unconstructable response (status ' + response.status + ')'
+                  ));
+                }
+              },
+              reject,
+              channelId
+            });
+            
+            realParent.postMessage({
+              type: 'proxyFetch',
+              id,
+              url,
+              init,
+              channelId
+            }, '*');
+          });
+        };
+
+        window.addEventListener('message', async (event) => {
+          // Only the embedding parent may drive the bridge — sibling and
+          // nested frames can also postMessage into this window.
+          if (event.source !== realParent) return;
+          if (event.data.type === 'takeScreenshot') {
+            // Echo the request's nonce so the requester can correlate the
+            // reply to ITS request — a reply without the expected nonce
+            // (e.g. from a stale pre-remount artifact) is ignored upstream.
+            const screenshotNonce = event.data.nonce;
+            const rootElement = document.getElementById('artifacts-component-root-html');
+            if (!rootElement) {
+              realParent.postMessage({
+                type: 'screenshotError',
+                nonce: screenshotNonce,
+                error: new Error('Root element not found'),
+              }, '*');
+              return;
+            }
+            // Catch CDN load failures (htmlToImage undefined) and toPng errors
+            // so the parent always gets a response instead of hanging forever.
+            try {
+              const screenshot = await htmlToImage.toPng(rootElement, {
+                imagePlaceholder:
+                  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAA1JREFUGFdjePDgwX8ACOQDoNsk0PMAAAAASUVORK5CYII=",
+              });
+              realParent.postMessage({
+                type: 'screenshotData',
+                nonce: screenshotNonce,
+                data: screenshot,
+              }, '*');
+            } catch (err) {
+              realParent.postMessage({
+                type: 'screenshotError',
+                nonce: screenshotNonce,
+                error: err instanceof Error ? err : new Error(String(err)),
+              }, '*');
+            }
+          } else if (event.data.type === 'claudeComplete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.completion);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'proxyFetchResponse') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+              callbacksMap.delete(event.data.id);
+            } else {
+              // Initial response with headers, status, etc.
+              callback.resolve({
+                status: event.data.status,
+                statusText: event.data.statusText,
+                headers: event.data.headers
+              });
+              // Don't delete the callback yet if streaming
+              if (!event.data.body) {
+                callbacksMap.delete(event.data.id);
+              }
+            }
+          } else if (event.data.type === 'proxyFetchStream') {
+            // Handle streaming data chunks
+            const controller = streamControllers.get(event.data.channelId);
+            if (controller) {
+              if (event.data.error) {
+                controller.error(new Error(event.data.error));
+                streamControllers.delete(event.data.channelId);
+              } else if (event.data.done) {
+                controller.close();
+                streamControllers.delete(event.data.channelId);
+                // Clean up the callback
+                const callback = Array.from(callbacksMap.entries()).find(
+                  ([_, value]) => value.channelId === event.data.channelId
+                );
+                if (callback) {
+                  callbacksMap.delete(callback[0]);
+                }
+              } else if (event.data.chunk) {
+                controller.enqueue(new Uint8Array(event.data.chunk));
+              }
+            }
+          } else if (event.data.type === 'storageGet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageSet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageDelete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageList') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          }
+        });
+
+        window.addEventListener('click', (event) => {
+          const isEl = event.target instanceof HTMLElement;
+          if (!isEl) return;
+    
+          // find ancestor links
+          const linkEl = event.target.closest("a");
+          if (!linkEl || !linkEl.href) return;
+    
+          event.preventDefault();
+          event.stopImmediatePropagation();
+    
+          if (linkEl.href.startsWith("blob-request:")) {
+            const blob = getBlobFromURL(linkEl.href);
+            if (!blob) return;
+            void blob.arrayBuffer().then((data) => {
+              realParent.postMessage({
+                type: "downloadFile",
+                filename: linkEl.download,
+                data,
+                mimeType: blob.type || "application/octet-stream",
+              });
+            });
+          } else if (linkEl.href.startsWith("data:")) {
+            const [header, base64Data] = linkEl.href.split(",");
+            const mimeMatch = header.match(/data:([^;]+)/);
+            const mimeType = mimeMatch ? mimeMatch[1] : "application/octet-stream";
+            const binaryString = atob(base64Data);
+            const data = Uint8Array.from(binaryString, (c) =>
+              c.charCodeAt(0),
+            ).buffer;
+            realParent.postMessage({
+              type: "downloadFile",
+              filename: linkEl.download,
+              data,
+              mimeType,
+            });
+          } else {
+            let linkUrl;
+            try {
+              linkUrl = new URL(linkEl.href);
+            } catch (error) {
+              return;
+            }
+    
+            if (linkUrl.hostname === window.location.hostname) return;
+      
+            realParent.postMessage({
+              type: 'openExternal',
+              href: linkEl.href,
+            }, '*');
+          }
+      });
+
+        const originalOpen = window.open;
+        window.open = function (url) {
+          realParent.postMessage({
+            type: "openExternal",
+            href: url,
+          }, "*");
+        };
+
+        window.addEventListener('error', (event) => {
+          realParent.postMessage({ type: 'console', message: 'Uncaught Error: ' + event.message }, '*');
+        });
+      })();
+    </script>
+  
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Vera's Calm-Down Jar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-top:#FFF3E6;
+    --bg-bottom:#F0EAFF;
+    --ink:#4A3F55;
+    --ink-soft:#8A7E97;
+    --glass:rgba(255,255,255,0.34);
+    --glass-edge:rgba(255,255,255,0.7);
+    --glass-tint:rgba(180,205,255,0.18);
+    --calm:#3FB984;
+    --calm-dark:#2E9C6E;
+    --oops:#EEE7F2;
+    --oops-ink:#9A8AA6;
+    --flash:rgba(242,84,91,0.5);
+    --pom-purple:#9B5DE5;
+    --pom-green:#37C871;
+    --pom-red:#F2545B;
+    --pom-blue:#4D9DE0;
+    --pom-pink:#FF77A9;
+    --pom-yellow:#FFC94D;
+    --display:"Baloo 2", ui-rounded, "SF Pro Rounded", "Segoe UI Rounded", system-ui, sans-serif;
+    --body:"Nunito", ui-rounded, system-ui, sans-serif;
+  }
+
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    font-family:var(--body);
+    color:var(--ink);
+    background:linear-gradient(170deg,var(--bg-top) 0%,var(--bg-bottom) 100%);
+    background-attachment:fixed;
+    min-height:100dvh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    padding:18px 16px calc(20px + env(safe-area-inset-bottom));
+    overflow-x:hidden;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+
+  header{ text-align:center; margin-top:4px; }
+  h1{
+    font-family:var(--display);
+    font-weight:800;
+    font-size:clamp(1.7rem,7vw,2.4rem);
+    margin:0;
+    color:var(--ink);
+    letter-spacing:.3px;
+  }
+  .subtitle{
+    margin:4px 0 0;
+    font-size:clamp(.85rem,3.6vw,1rem);
+    font-weight:700;
+    color:var(--ink-soft);
+  }
+
+  /* progress badge */
+  .badge{
+    margin:14px 0 4px;
+    background:#fff;
+    border-radius:999px;
+    padding:8px 18px;
+    font-family:var(--display);
+    font-weight:700;
+    font-size:1.05rem;
+    color:var(--ink);
+    box-shadow:0 6px 16px rgba(120,90,160,0.16);
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+  }
+  .badge .left{ color:var(--calm-dark); font-size:1.25rem; transition:transform .2s; }
+  .badge.pop .left{ transform:scale(1.35) rotate(-8deg); }
+
+  /* jar */
+  .jar-wrap{
+    position:relative;
+    width:min(78vw,260px);
+    margin:10px auto 4px;
+    display:flex;
+    justify-content:center;
+  }
+  .jar{
+    position:relative;
+    width:100%;
+    aspect-ratio:5 / 7;
+  }
+  /* the lid / rim */
+  .jar-lid{
+    position:absolute;
+    top:0; left:50%;
+    transform:translateX(-50%);
+    width:62%;
+    height:7%;
+    background:linear-gradient(180deg,#fff,#e9e2f2);
+    border-radius:10px 10px 6px 6px;
+    box-shadow:inset 0 -3px 4px rgba(150,130,180,.25), 0 3px 6px rgba(120,90,160,.18);
+    z-index:5;
+  }
+  .jar-neck{
+    position:absolute;
+    top:5.5%; left:50%;
+    transform:translateX(-50%);
+    width:52%;
+    height:6%;
+    background:var(--glass);
+    border-left:3px solid var(--glass-edge);
+    border-right:3px solid var(--glass-edge);
+    z-index:4;
+  }
+  /* glass body */
+  .jar-glass{
+    position:absolute;
+    top:9%; left:0;
+    width:100%;
+    height:91%;
+    border-radius:26px 26px 38px 38px;
+    background:linear-gradient(120deg,var(--glass-tint),var(--glass) 40%,rgba(255,255,255,.12));
+    border:3px solid var(--glass-edge);
+    border-top:none;
+    box-shadow:
+      inset 14px 0 22px rgba(255,255,255,.45),
+      inset -16px -10px 26px rgba(150,170,220,.18),
+      0 16px 30px rgba(120,90,160,.16);
+    overflow:hidden;
+  }
+  /* shine streak */
+  .jar-glass::before{
+    content:"";
+    position:absolute;
+    top:6%; left:14%;
+    width:14%; height:74%;
+    border-radius:40px;
+    background:linear-gradient(180deg,rgba(255,255,255,.7),rgba(255,255,255,0));
+    transform:rotate(4deg);
+    pointer-events:none;
+    z-index:3;
+  }
+  /* area the poms pile inside */
+  .pom-field{
+    position:absolute;
+    inset:0;
+    z-index:2;
+  }
+
+  /* a single pom */
+  .slot{
+    position:absolute;
+    width:var(--d);
+    height:var(--d);
+    will-change:transform;
+  }
+  .bounce{
+    width:100%; height:100%;
+    animation:drop .72s cubic-bezier(.34,1.4,.5,1) both;
+    transform-origin:center bottom;
+  }
+  .bounce.leaving{
+    animation:leave .6s ease-in forwards;
+  }
+  .pom{
+    width:100%; height:100%;
+    border-radius:50%;
+    position:relative;
+    background:
+      radial-gradient(circle at 34% 30%, rgba(255,255,255,.65), rgba(255,255,255,0) 42%),
+      radial-gradient(circle at 50% 50%, var(--c) 60%, color-mix(in srgb, var(--c) 70%, black) 100%);
+    box-shadow:
+      inset -4px -5px 7px rgba(0,0,0,.18),
+      inset 3px 3px 6px rgba(255,255,255,.35);
+    filter:saturate(1.05);
+  }
+  /* fuzzy halo */
+  .pom::before{
+    content:"";
+    position:absolute;
+    inset:-3px;
+    border-radius:50%;
+    background:var(--c);
+    filter:blur(3px);
+    opacity:.55;
+    z-index:-1;
+  }
+  /* little fibers */
+  .pom::after{
+    content:"";
+    position:absolute;
+    inset:-1px;
+    border-radius:50%;
+    background:
+      radial-gradient(1.5px 1.5px at 18% 22%, color-mix(in srgb,var(--c) 60%,white), transparent),
+      radial-gradient(1.5px 1.5px at 78% 30%, color-mix(in srgb,var(--c) 60%,white), transparent),
+      radial-gradient(1.5px 1.5px at 30% 78%, color-mix(in srgb,var(--c) 60%,black), transparent),
+      radial-gradient(1.5px 1.5px at 70% 72%, color-mix(in srgb,var(--c) 60%,black), transparent),
+      radial-gradient(1.5px 1.5px at 50% 50%, color-mix(in srgb,var(--c) 70%,white), transparent);
+    opacity:.8;
+  }
+  /* red X shown on a leaving pom */
+  .slot .x-mark{
+    position:absolute;
+    inset:0;
+    z-index:6;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    font-family:var(--display);
+    font-weight:800;
+    font-size:calc(var(--d) * .9);
+    color:#E0202A;
+    text-shadow:0 1px 2px rgba(0,0,0,.25);
+  }
+  .slot.removing .x-mark{ display:flex; }
+
+  @keyframes drop{
+    0%{ transform:translateY(-340px) scaleX(1.04) scaleY(.82); opacity:.25; }
+    58%{ transform:translateY(7px) scaleX(1.2) scaleY(.74); opacity:1; }
+    74%{ transform:translateY(-6px) scaleX(.9) scaleY(1.12); }
+    88%{ transform:translateY(3px) scaleX(1.05) scaleY(.96); }
+    100%{ transform:translateY(0) scaleX(1) scaleY(1); opacity:1; }
+  }
+  @keyframes leave{
+    0%{ transform:translateY(0) scale(1); opacity:1; }
+    25%{ transform:translateY(8px) scale(1.12); }
+    100%{ transform:translateY(-360px) scale(.5) rotate(20deg); opacity:0; }
+  }
+
+  /* buttons */
+  .controls{
+    width:min(92vw,360px);
+    margin-top:14px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  button{ font-family:var(--display); cursor:pointer; border:none; }
+  .btn-calm{
+    background:linear-gradient(180deg,var(--calm),var(--calm-dark));
+    color:#fff;
+    font-weight:800;
+    font-size:1.25rem;
+    padding:20px 18px;
+    border-radius:22px;
+    box-shadow:0 8px 0 var(--calm-dark), 0 14px 22px rgba(47,156,110,.35);
+    transition:transform .08s, box-shadow .08s;
+    line-height:1.2;
+  }
+  .btn-calm:active{ transform:translateY(6px); box-shadow:0 2px 0 var(--calm-dark), 0 6px 12px rgba(47,156,110,.3); }
+  .btn-calm small{ display:block; font-family:var(--body); font-weight:700; font-size:.8rem; opacity:.92; margin-top:3px; }
+
+  .btn-oops{
+    background:var(--oops);
+    color:var(--oops-ink);
+    font-weight:700;
+    font-size:1rem;
+    padding:14px 16px;
+    border-radius:18px;
+    box-shadow:0 4px 0 #ddd2e4;
+    transition:transform .08s, box-shadow .08s;
+  }
+  .btn-oops:active{ transform:translateY(3px); box-shadow:0 1px 0 #ddd2e4; }
+
+  .reset{
+    margin-top:18px;
+    background:none;
+    color:var(--ink-soft);
+    font-family:var(--body);
+    font-weight:700;
+    font-size:.82rem;
+    opacity:.7;
+    padding:8px 12px;
+    text-decoration:underline;
+  }
+
+  button:focus-visible{ outline:3px solid #6C5CE7; outline-offset:3px; }
+
+  /* full-screen red flash */
+  .flash{
+    position:fixed; inset:0;
+    background:var(--flash);
+    opacity:0;
+    pointer-events:none;
+    z-index:50;
+  }
+  .flash.go{ animation:flashAnim .5s ease-out; }
+  @keyframes flashAnim{
+    0%{ opacity:0; } 18%{ opacity:1; } 100%{ opacity:0; }
+  }
+
+  /* celebration overlay */
+  .party{
+    position:fixed; inset:0;
+    background:rgba(40,25,60,.55);
+    backdrop-filter:blur(3px);
+    z-index:60;
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:24px;
+  }
+  .party.show{ display:flex; }
+  .party .gift{ font-size:5.5rem; animation:wiggle 1s ease-in-out infinite; }
+  @keyframes wiggle{ 0%,100%{transform:rotate(-7deg) scale(1);} 50%{transform:rotate(7deg) scale(1.08);} }
+  .party h2{
+    font-family:var(--display); font-weight:800; color:#fff;
+    font-size:2rem; margin:14px 0 4px; text-shadow:0 2px 8px rgba(0,0,0,.3);
+  }
+  .party p{ color:#fff; font-weight:700; font-size:1.05rem; margin:0 0 22px; opacity:.95; }
+  .party button{
+    background:#FFC94D; color:#5a4500; font-weight:800; font-size:1.1rem;
+    padding:16px 28px; border-radius:18px; box-shadow:0 6px 0 #d8a72f;
+  }
+  canvas#confetti{ position:fixed; inset:0; z-index:55; pointer-events:none; display:none; }
+
+  @media (prefers-reduced-motion: reduce){
+    .bounce{ animation-duration:.01s; }
+    .bounce.leaving{ animation-duration:.01s; }
+    .party .gift{ animation:none; }
+    .flash.go{ animation-duration:.2s; }
+  }
+</style>
+</head>
+<body id="artifacts-component-root-html">
+  <header>
+    <h1>Vera's Calm-Down Jar</h1>
+    <p class="subtitle">Take 3 deep breaths · count to 10 · add a pom-pom 🌬️</p>
+  </header>
+
+  <div class="badge" id="badge"><span class="left">🫙</span><span id="count">0 / 20</span></div>
+
+  <div class="jar-wrap">
+    <div class="jar">
+      <div class="jar-glass"><div class="pom-field" id="field"></div></div>
+      <div class="jar-neck"></div>
+      <div class="jar-lid"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn-calm" id="addBtn">
+      I calmed myself down 🌬️
+      <small>3 deep breaths and counted to 10</small>
+    </button>
+    <button class="btn-oops" id="subBtn">I screamed or threw something 😣 — take one out</button>
+  </div>
+
+  <button class="reset" id="resetBtn">Reset jar (grown-ups)</button>
+
+  <div class="flash" id="flash"></div>
+  <canvas id="confetti"></canvas>
+  <div class="party" id="party">
+    <div class="gift">🎁</div>
+    <h2>You filled the jar!</h2>
+    <p>Amazing job, Vera! Time for a special present 🎉</p>
+    <button id="newJarBtn">Start a new jar</button>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+  const MAX = 20;
+  const START = 10;           // jar begins half full — a forgiving, neutral baseline
+  const KEY = "veraPomCount";
+  const COLORS = [
+    {name:"purple", v:"#9B5DE5"},
+    {name:"green",  v:"#37C871"},
+    {name:"red",    v:"#F2545B"},
+    {name:"blue",   v:"#4D9DE0"},
+    {name:"pink",   v:"#FF77A9"},
+    {name:"yellow", v:"#FFC94D"}
+  ];
+
+  const field  = document.getElementById("field");
+  const countEl= document.getElementById("count");
+  const badge  = document.getElementById("badge");
+  const flash  = document.getElementById("flash");
+  const party  = document.getElementById("party");
+  const canvas = document.getElementById("confetti");
+
+  // ---- persistent count (survives refresh) ----
+  function load(){
+    let raw = null;
+    try { raw = localStorage.getItem(KEY); } catch(e){ raw = null; }
+    let n = parseInt(raw, 10);
+    if (isNaN(n) || n < 0) n = START;
+    if (n > MAX) n = MAX;
+    return n;
+  }
+  function save(n){ try{ localStorage.setItem(KEY, String(n)); }catch(e){} }
+  let count = load();
+
+  // ---- precompute 20 pile positions (hex-ish packing from the bottom) ----
+  // values are percentages of the pom-field box
+  const slots = [];
+  (function build(){
+    const cols = 4;
+    const rows = 5;            // 4 x 5 = 20
+    const d = 22;              // pom diameter as % of field width
+    const rowH = 16;           // vertical step (% of field height) — overlap for a packed look
+    const baseY = 90;          // bottom-most row center (% from top)
+    const spread = 20;         // horizontal gap between pom centers (%)
+    const startX = 18;
+    for (let r = 0; r < rows; r++){
+      const offset = (r % 2) ? spread/2 : 0;
+      for (let c = 0; c < cols; c++){
+        const jx = (Math.random()*5 - 2.5);
+        const jy = (Math.random()*3 - 1.5);
+        const rot = (Math.random()*30 - 15);
+        let x = startX + c*spread + offset + jx;
+        x = Math.max(8, Math.min(72, x));
+        const y = baseY - r*rowH + jy;
+        slots.push({x, y, d, rot});
+      }
+    }
+  })();
+
+  function diameterPx(){
+    return field.clientWidth * 0.22;
+  }
+
+  function makePom(i, animate){
+    const s = slots[i];
+    const color = COLORS[i % COLORS.length].v;
+    const dpx = diameterPx();
+    const slot = document.createElement("div");
+    slot.className = "slot";
+    slot.dataset.idx = i;
+    slot.style.setProperty("--d", dpx + "px");
+    slot.style.left = (s.x/100 * field.clientWidth - dpx/2) + "px";
+    slot.style.top  = (s.y/100 * field.clientHeight - dpx/2) + "px";
+
+    const bounce = document.createElement("div");
+    bounce.className = "bounce";
+    if (!animate) bounce.style.animation = "none";
+
+    const pom = document.createElement("div");
+    pom.className = "pom";
+    pom.style.setProperty("--c", color);
+    pom.style.transform = "rotate(" + s.rot + "deg)";
+
+    const x = document.createElement("div");
+    x.className = "x-mark";
+    x.textContent = "✕";
+
+    bounce.appendChild(pom);
+    slot.appendChild(bounce);
+    slot.appendChild(x);
+    field.appendChild(slot);
+    return slot;
+  }
+
+  function renderAll(){
+    field.innerHTML = "";
+    for (let i = 0; i < count; i++) makePom(i, false);
+    updateBadge(false);
+  }
+
+  function updateBadge(pop){
+    countEl.textContent = count + " / " + MAX;
+    if (pop){ badge.classList.add("pop"); setTimeout(()=>badge.classList.remove("pop"), 220); }
+  }
+
+  // ---------- actions ----------
+  function addPom(){
+    if (count >= MAX) return;
+    makePom(count, true);
+    count++;
+    save(count);
+    updateBadge(true);
+    sndDing();
+    if (count >= MAX) setTimeout(celebrate, 650);
+  }
+
+  function removePom(){
+    if (count <= 0){ buzzAndFlash(); return; }
+    const last = field.querySelector('.slot[data-idx="'+(count-1)+'"]');
+    count--;
+    save(count);
+    updateBadge(true);
+    buzzAndFlash();
+    if (last){
+      last.classList.add("removing");
+      const b = last.querySelector(".bounce");
+      if (b){ b.style.animation = "none"; void b.offsetWidth; b.classList.add("leaving"); }
+      setTimeout(()=>last.remove(), 620);
+    }
+  }
+
+  function buzzAndFlash(){
+    flash.classList.remove("go"); void flash.offsetWidth; flash.classList.add("go");
+    sndBuzz();
+  }
+
+  // ---------- sound (Web Audio, no files) ----------
+  let actx = null;
+  function ac(){
+    if (!actx){ try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+    if (actx && actx.state === "suspended") actx.resume();
+    return actx;
+  }
+  function tone(freq, start, dur, type, vol){
+    const a = ac(); if(!a) return;
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = type || "sine"; o.frequency.value = freq;
+    o.connect(g); g.connect(a.destination);
+    const t = a.currentTime + start;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol||0.2, t+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    o.start(t); o.stop(t+dur+0.02);
+  }
+  function sndDing(){ tone(880,0,0.5,"sine",0.22); tone(1318.5,0.07,0.5,"sine",0.16); }
+  function sndBuzz(){
+    const a = ac(); if(!a) return;
+    const o = a.createOscillator(), g = a.createGain(), f = a.createBiquadFilter();
+    o.type="sawtooth"; o.frequency.value=120;
+    f.type="lowpass"; f.frequency.value=900;
+    o.connect(f); f.connect(g); g.connect(a.destination);
+    const t=a.currentTime;
+    g.gain.setValueAtTime(0.25,t);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+0.28);
+    o.frequency.setValueAtTime(120,t);
+    o.frequency.linearRampToValueAtTime(70,t+0.28);
+    o.start(t); o.stop(t+0.3);
+  }
+  function sndFanfare(){ [523,659,784,1046].forEach((f,i)=>tone(f,i*0.12,0.5,"triangle",0.22)); }
+
+  // ---------- celebration ----------
+  function celebrate(){
+    party.classList.add("show");
+    sndFanfare();
+    runConfetti();
+  }
+  function runConfetti(){
+    canvas.style.display="block";
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width = innerWidth, H = canvas.height = innerHeight;
+    const cols = COLORS.map(c=>c.v);
+    const bits = [];
+    for (let i=0;i<140;i++){
+      bits.push({x:Math.random()*W, y:-20-Math.random()*H, r:6+Math.random()*8,
+        c:cols[i%cols.length], vy:2+Math.random()*4, vx:-2+Math.random()*4,
+        rot:Math.random()*6, vr:-0.2+Math.random()*0.4});
+    }
+    let frames=0;
+    (function tick(){
+      ctx.clearRect(0,0,W,H);
+      bits.forEach(b=>{
+        b.y+=b.vy; b.x+=b.vx; b.rot+=b.vr;
+        ctx.save(); ctx.translate(b.x,b.y); ctx.rotate(b.rot);
+        ctx.fillStyle=b.c; ctx.fillRect(-b.r/2,-b.r/2,b.r,b.r*0.6); ctx.restore();
+      });
+      frames++;
+      if (frames<200) requestAnimationFrame(tick);
+      else canvas.style.display="none";
+    })();
+  }
+
+  function newJar(){
+    party.classList.remove("show");
+    count = START; save(START); renderAll();
+  }
+
+  // ---------- wire up ----------
+  document.getElementById("addBtn").addEventListener("click", addPom);
+  document.getElementById("subBtn").addEventListener("click", removePom);
+  document.getElementById("newJarBtn").addEventListener("click", newJar);
+  document.getElementById("resetBtn").addEventListener("click", function(){
+    if (confirm("Reset the jar back to half full?")){ count=START; save(START); renderAll(); }
+  });
+
+  window.addEventListener("resize", renderAll);
+  renderAll();
+})();
+</script>
+</body>
+</html>

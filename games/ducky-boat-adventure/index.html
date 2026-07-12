@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Vera's Ducky Boat Adventure</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Lilita+One&family=Quicksand:wght@500;600;700&display=swap");
+
+    :root {
+      --sky: #8bd4f4;
+      --sea: #166f9a;
+      --deep: #084b6f;
+      --sun: #ffd86b;
+      --ink: #12384f;
+      --white: #fffaf0;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Quicksand", system-ui, sans-serif;
+      background: linear-gradient(180deg, var(--sky), var(--sea) 55%, var(--deep));
+      color: var(--ink);
+      overflow: hidden;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .game {
+      position: relative;
+      width: min(100vw, 480px);
+      min-height: 100vh;
+      margin: 0 auto;
+      overflow: hidden;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cloud {
+      position: absolute;
+      top: var(--top);
+      left: -80px;
+      font-size: var(--size);
+      opacity: var(--opacity);
+      animation: cloudFloat var(--speed) linear infinite;
+      animation-delay: var(--delay);
+      pointer-events: none;
+    }
+
+    @keyframes cloudFloat {
+      from { transform: translateX(-80px); }
+      to { transform: translateX(620px); }
+    }
+
+    @keyframes bob {
+      0%, 100% { transform: translateY(0) rotate(-2deg); }
+      50% { transform: translateY(-10px) rotate(2deg); }
+    }
+
+    @keyframes pop {
+      0% { transform: scale(.5); opacity: 0; }
+      70% { transform: scale(1.08); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-6px); }
+      75% { transform: translateX(6px); }
+    }
+
+    .screen {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      text-align: center;
+    }
+
+    .title-screen {
+      display: grid;
+      justify-items: center;
+      gap: 14px;
+    }
+
+    .boat-hero {
+      font-size: 80px;
+      animation: bob 2.8s ease-in-out infinite;
+      margin-bottom: -10px;
+    }
+
+    h1, h2 {
+      font-family: "Lilita One", system-ui, sans-serif;
+      letter-spacing: 0;
+      margin: 0;
+      color: white;
+      text-shadow: 0 4px 0 #d94f73, 0 7px 16px rgba(0, 0, 0, .22);
+    }
+
+    h1 {
+      font-size: clamp(44px, 12vw, 58px);
+      line-height: .9;
+    }
+
+    h2 {
+      font-size: clamp(32px, 8vw, 44px);
+      line-height: 1;
+    }
+
+    .primary {
+      border: 0;
+      border-radius: 999px;
+      padding: 16px 24px;
+      background: linear-gradient(180deg, #fff4a3, var(--sun));
+      color: #74420b;
+      font-weight: 800;
+      font-size: 21px;
+      box-shadow: 0 8px 0 #d79a29, 0 14px 24px rgba(0, 0, 0, .24);
+      cursor: pointer;
+      min-width: 170px;
+    }
+
+    .primary:active {
+      transform: translateY(4px);
+      box-shadow: 0 4px 0 #d79a29, 0 9px 18px rgba(0, 0, 0, .2);
+    }
+
+    .harbor {
+      min-height: 100vh;
+      justify-content: flex-start;
+      padding-top: 18px;
+    }
+
+    .harbor h2 {
+      font-size: 34px;
+      text-shadow: 0 3px 0 #1377a4, 0 6px 14px rgba(0, 0, 0, .18);
+    }
+
+    .subtitle {
+      margin: 7px 0 14px;
+      color: #ecfbff;
+      font-weight: 700;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, .28);
+    }
+
+    .boats {
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin: 12px 0;
+    }
+
+    .boat-card {
+      min-height: 106px;
+      border: 0;
+      border-radius: 22px;
+      background: rgba(255, 250, 240, .96);
+      box-shadow: 0 7px 0 rgba(6, 75, 109, .35), 0 12px 18px rgba(0, 0, 0, .13);
+      display: grid;
+      place-items: center;
+      gap: 2px;
+      color: var(--ink);
+      cursor: pointer;
+      padding: 10px;
+    }
+
+    .boat-card .flag {
+      font-size: 32px;
+    }
+
+    .boat-card .country {
+      font-weight: 800;
+      font-size: 15px;
+      line-height: 1.05;
+    }
+
+    .boat-card .boat {
+      font-size: 26px;
+    }
+
+    .boat-card.correct {
+      animation: pop .35s ease-out;
+      background: #e7ffd7;
+    }
+
+    .boat-card.wrong {
+      animation: shake .25s ease-in-out;
+      background: #ffe4e4;
+    }
+
+    .duck-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      width: 100%;
+      gap: 6px;
+      margin: 10px 0 12px;
+    }
+
+    .duck {
+      border-radius: 16px;
+      padding: 8px 4px;
+      background: rgba(255, 255, 255, .55);
+      font-weight: 800;
+      color: white;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, .35);
+      opacity: .62;
+    }
+
+    .duck.active {
+      background: rgba(255, 216, 107, .94);
+      color: #6a430a;
+      text-shadow: none;
+      opacity: 1;
+      transform: translateY(-2px);
+    }
+
+    .duck.done {
+      opacity: 1;
+      background: rgba(203, 255, 186, .9);
+      color: #245619;
+      text-shadow: none;
+    }
+
+    .duck-icon {
+      display: block;
+      font-size: 26px;
+    }
+
+    .duck-name {
+      display: block;
+      font-size: 12px;
+    }
+
+    .speech {
+      min-height: 132px;
+      display: grid;
+      place-items: center;
+      padding: 14px;
+      border-radius: 24px;
+      background: var(--white);
+      box-shadow: 0 9px 0 rgba(6, 75, 109, .3);
+      font-weight: 800;
+      color: var(--ink);
+      line-height: 1.25;
+    }
+
+    .speech strong {
+      color: #d94f73;
+    }
+
+    .destination {
+      display: block;
+      margin-top: 8px;
+      font-size: 24px;
+      color: #0c6f9d;
+    }
+
+    .message {
+      margin-top: 8px;
+      color: #ecfbff;
+      min-height: 26px;
+      font-weight: 800;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, .3);
+    }
+
+    .reset {
+      margin-top: 8px;
+      border: 0;
+      background: rgba(255, 255, 255, .78);
+      color: #15516f;
+      border-radius: 999px;
+      padding: 9px 15px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .waves {
+      position: absolute;
+      left: -50%;
+      bottom: -6px;
+      width: 200%;
+      height: 64px;
+      background:
+        radial-gradient(ellipse at 25px 30px, rgba(255,255,255,.35) 0 18px, transparent 19px) repeat-x;
+      background-size: 80px 48px;
+      animation: waveSlide 7s linear infinite;
+      opacity: .75;
+      pointer-events: none;
+    }
+
+    @keyframes waveSlide {
+      from { transform: translateX(0); }
+      to { transform: translateX(-80px); }
+    }
+  </style>
+</head>
+<body>
+  <main class="game" id="game">
+    <span class="cloud" style="--top: 7%; --size: 30px; --opacity: .58; --speed: 18s; --delay: 0s;">☁️</span>
+    <span class="cloud" style="--top: 18%; --size: 38px; --opacity: .48; --speed: 23s; --delay: -5s;">☁️</span>
+    <span class="cloud" style="--top: 32%; --size: 46px; --opacity: .38; --speed: 28s; --delay: -10s;">☁️</span>
+    <span class="cloud" style="--top: 48%; --size: 52px; --opacity: .3; --speed: 32s; --delay: -14s;">☁️</span>
+
+    <section class="screen title-screen" id="titleScreen">
+      <div class="boat-hero">🐤⛵🐤</div>
+      <div>
+        <h1>Vera's Ducky</h1>
+        <h2>Boat Adventure!</h2>
+      </div>
+      <button class="primary" id="startButton">🎮 Let's Play!</button>
+    </section>
+
+    <section class="screen harbor" id="harborScreen" hidden>
+      <h2>🏖️ The Harbor</h2>
+      <p class="subtitle">Help the duckies find their boats!</p>
+      <div class="boats" id="boats"></div>
+      <div class="duck-row" id="duckRow"></div>
+      <div class="speech" id="speech"></div>
+      <p class="message" id="message"></p>
+      <button class="reset" id="resetButton">↺ Play Again</button>
+    </section>
+
+    <div class="waves"></div>
+  </main>
+
+  <script>
+    const boats = [
+      { country: "Spain", flag: "🇪🇸" },
+      { country: "United Kingdom", flag: "🇬🇧" },
+      { country: "United States", flag: "🇺🇸" },
+      { country: "Switzerland", flag: "🇨🇭" }
+    ];
+
+    const ducks = [
+      { name: "Maple", destination: "United Kingdom" },
+      { name: "Quackers", destination: "Spain" },
+      { name: "Pepper", destination: "United States" },
+      { name: "Bubbles", destination: "Switzerland" }
+    ];
+
+    const state = {
+      started: false,
+      asked: false,
+      current: 0,
+      done: new Set()
+    };
+
+    const titleScreen = document.getElementById("titleScreen");
+    const harborScreen = document.getElementById("harborScreen");
+    const boatsEl = document.getElementById("boats");
+    const duckRow = document.getElementById("duckRow");
+    const speech = document.getElementById("speech");
+    const message = document.getElementById("message");
+
+    function currentDuck() {
+      return ducks[state.current];
+    }
+
+    function renderBoats() {
+      boatsEl.innerHTML = "";
+      boats.forEach((boat) => {
+        const button = document.createElement("button");
+        button.className = "boat-card";
+        button.type = "button";
+        button.innerHTML = `
+          <span class="flag">${boat.flag}</span>
+          <span class="country">${boat.country}</span>
+          <span class="boat">⛵</span>
+        `;
+        button.addEventListener("click", () => chooseBoat(button, boat.country));
+        boatsEl.appendChild(button);
+      });
+    }
+
+    function renderDucks() {
+      duckRow.innerHTML = "";
+      ducks.forEach((duck, index) => {
+        const div = document.createElement("div");
+        div.className = "duck";
+        if (state.done.has(index)) div.classList.add("done");
+        if (index === state.current && !allDone()) div.classList.add("active");
+        div.innerHTML = `<span class="duck-icon">${state.done.has(index) ? "✅" : "🐤"}</span><span class="duck-name">${duck.name}</span>`;
+        duckRow.appendChild(div);
+      });
+    }
+
+    function renderSpeech() {
+      if (allDone()) {
+        speech.innerHTML = "All duckies found their boats!<br><span class=\"destination\">🎉 🐤⛵🐤 🎉</span>";
+        message.textContent = "Great helping, Vera!";
+        return;
+      }
+
+      const duck = currentDuck();
+      if (!state.asked) {
+        speech.innerHTML = `Hi! I'm <strong>${duck.name}</strong>! 👋<br><button class="primary" id="askButton">Where are you going? 🗺️</button>`;
+        document.getElementById("askButton").addEventListener("click", () => {
+          state.asked = true;
+          message.textContent = "";
+          render();
+        });
+      } else {
+        const boat = boats.find((item) => item.country === duck.destination);
+        speech.innerHTML = `I want to go to <span class="destination">${boat.flag} ${boat.country}!</span><br>Tap the right boat! ☝️`;
+      }
+    }
+
+    function chooseBoat(button, country) {
+      if (allDone() || !state.asked) {
+        message.textContent = "Ask the ducky first!";
+        return;
+      }
+
+      const duck = currentDuck();
+      button.classList.remove("correct", "wrong");
+      void button.offsetWidth;
+
+      if (country === duck.destination) {
+        button.classList.add("correct");
+        state.done.add(state.current);
+        message.textContent = `${duck.name} found the boat!`;
+        setTimeout(() => {
+          state.current = nextDuckIndex();
+          state.asked = false;
+          render();
+        }, 650);
+      } else {
+        button.classList.add("wrong");
+        message.textContent = "Try another boat!";
+      }
+    }
+
+    function nextDuckIndex() {
+      const next = ducks.findIndex((_, index) => !state.done.has(index));
+      return next === -1 ? state.current : next;
+    }
+
+    function allDone() {
+      return state.done.size === ducks.length;
+    }
+
+    function render() {
+      renderBoats();
+      renderDucks();
+      renderSpeech();
+    }
+
+    function reset() {
+      state.asked = false;
+      state.current = 0;
+      state.done = new Set();
+      message.textContent = "";
+      render();
+    }
+
+    document.getElementById("startButton").addEventListener("click", () => {
+      titleScreen.hidden = true;
+      harborScreen.hidden = false;
+      render();
+    });
+
+    document.getElementById("resetButton").addEventListener("click", reset);
+  </script>
+</body>
+</html>
