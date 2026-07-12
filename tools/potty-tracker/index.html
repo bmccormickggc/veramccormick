@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="robots" content="noindex,nofollow">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.13/html-to-image.min.js" integrity="sha512-iZ2ORl595Wx6miw+GuadDet4WQbdSWS3JLMoNfY8cRGoEFy6oT3G9IbcrBeL6AfkgpA51ETt/faX6yLV+/gFJg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+      (function() {
+        // Capture host references before any artifact code runs: Window.parent
+        // is [Replaceable] (a top-level `var parent` in artifact code would
+        // replace the accessor with a data property), and a top-level
+        // `const crypto` would shadow the global — either would otherwise
+        // silently break the bridge for artifacts that worked before.
+        const realParent = window.parent;
+        const cryptoObj = window.crypto;
+        // crypto.randomUUID exists only in Secure Contexts; fall back to a
+        // unique non-crypto id elsewhere (http://LAN-IP dev flows) —
+        // uniqueness is what the bridge needs, unpredictability is
+        // defense-in-depth on top of the source guards.
+        const newRequestId =
+          cryptoObj && typeof cryptoObj.randomUUID === "function"
+            ? function () { return cryptoObj.randomUUID(); }
+            : function () { return Date.now() + "-" + Math.random(); };
+        const originalConsole = window.console;
+        window.console = {
+          log: (...args) => {
+            originalConsole.log(...args);
+            realParent.postMessage({ type: 'console', message: args.join(' ') }, '*');
+          },
+          error: (...args) => {
+            originalConsole.error(...args);
+            realParent.postMessage({ type: 'console', message: 'Error: ' + args.join(' ') }, '*');
+          },
+          warn: (...args) => {
+            originalConsole.warn(...args);
+            realParent.postMessage({ type: 'console', message: 'Warning: ' + args.join(' ') }, '*');
+          }
+        };
+
+        // Bridge request ids are crypto-random (not sequential) so they
+        // cannot be predicted by other frames in the tab.
+        let callbacksMap = new Map();
+        let streamControllers = new Map();
+        
+        window.claude = {
+          complete: (prompt) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'claudeComplete', id, prompt }, '*');
+            });
+          }
+        };
+
+        window.storage = {
+          get: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageGet', id, key, shared }, '*');
+            });
+          },
+          set: (key, value, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageSet', id, key, value, shared }, '*');
+            });
+          },
+          delete: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageDelete', id, key, shared }, '*');
+            });
+          },
+          list: (prefix, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageList', id, prefix, shared }, '*');
+            });
+          }
+        };
+
+        let pendingBlobs = new Map();
+        URL.createObjectURL = (blob) => {
+          // Store the blob and create an ID and URL for it
+          const blobId = `blob-${Date.now()}-${Math.random()}`;
+          pendingBlobs.set(blobId, blob);
+          return `blob-request://${blobId}`;
+        };
+
+        URL.revokeObjectURL = (url) => {
+          // Remove the blob from our store
+          const blobId = url.replace("blob-request://", "");
+          pendingBlobs.delete(blobId);
+        };
+
+        const getBlobFromURL = (url) => {
+          const blobId = url.replace("blob-request://", "");
+          return pendingBlobs.get(blobId);
+        };
+
+        // Override global fetch with streaming support
+        window.fetch = (url, init = {}) => {
+          return new Promise((resolve, reject) => {
+            const id = newRequestId();
+            const channelId = `fetch-${id}-${Date.now()}`;
+            
+            callbacksMap.set(id, { 
+              resolve: (response) => {
+                // Null-body statuses: Response(stream, {status: 204}) throws
+                // per the Fetch spec, which would escape this resolver and
+                // hang the artifact's await forever.
+                if (response.status === 204 || response.status === 205 || response.status === 304) {
+                  try {
+                    resolve(new Response(null, {
+                      status: response.status,
+                      statusText: response.statusText,
+                      headers: response.headers
+                    }));
+                  } catch (err) {
+                    // Invalid statusText/header bytes can throw here too.
+                    reject(new TypeError(
+                      'Bridge fetch: unconstructable response (status ' + response.status + ')'
+                    ));
+                  }
+                  return;
+                }
+                // Create a ReadableStream for the response body
+                const stream = new ReadableStream({
+                  start(controller) {
+                    streamControllers.set(channelId, controller);
+                  },
+                  cancel() {
+                    streamControllers.delete(channelId);
+                  }
+                });
+                
+                // Create and return the Response with the stream. Response()
+                // requires status in [200, 599]; an opaque/no-cors fetch
+                // forwards status 0, which would throw here and escape the
+                // resolver, hanging the artifact's await. Surface it as a
+                // network-error-shaped rejection instead.
+                try {
+                  resolve(new Response(stream, {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: response.headers
+                  }));
+                } catch (err) {
+                  streamControllers.delete(channelId);
+                  reject(new TypeError(
+                    'Bridge fetch: unconstructable response (status ' + response.status + ')'
+                  ));
+                }
+              },
+              reject,
+              channelId
+            });
+            
+            realParent.postMessage({
+              type: 'proxyFetch',
+              id,
+              url,
+              init,
+              channelId
+            }, '*');
+          });
+        };
+
+        window.addEventListener('message', async (event) => {
+          // Only the embedding parent may drive the bridge — sibling and
+          // nested frames can also postMessage into this window.
+          if (event.source !== realParent) return;
+          if (event.data.type === 'takeScreenshot') {
+            // Echo the request's nonce so the requester can correlate the
+            // reply to ITS request — a reply without the expected nonce
+            // (e.g. from a stale pre-remount artifact) is ignored upstream.
+            const screenshotNonce = event.data.nonce;
+            const rootElement = document.getElementById('artifacts-component-root-html');
+            if (!rootElement) {
+              realParent.postMessage({
+                type: 'screenshotError',
+                nonce: screenshotNonce,
+                error: new Error('Root element not found'),
+              }, '*');
+              return;
+            }
+            // Catch CDN load failures (htmlToImage undefined) and toPng errors
+            // so the parent always gets a response instead of hanging forever.
+            try {
+              const screenshot = await htmlToImage.toPng(rootElement, {
+                imagePlaceholder:
+                  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAA1JREFUGFdjePDgwX8ACOQDoNsk0PMAAAAASUVORK5CYII=",
+              });
+              realParent.postMessage({
+                type: 'screenshotData',
+                nonce: screenshotNonce,
+                data: screenshot,
+              }, '*');
+            } catch (err) {
+              realParent.postMessage({
+                type: 'screenshotError',
+                nonce: screenshotNonce,
+                error: err instanceof Error ? err : new Error(String(err)),
+              }, '*');
+            }
+          } else if (event.data.type === 'claudeComplete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.completion);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'proxyFetchResponse') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+              callbacksMap.delete(event.data.id);
+            } else {
+              // Initial response with headers, status, etc.
+              callback.resolve({
+                status: event.data.status,
+                statusText: event.data.statusText,
+                headers: event.data.headers
+              });
+              // Don't delete the callback yet if streaming
+              if (!event.data.body) {
+                callbacksMap.delete(event.data.id);
+              }
+            }
+          } else if (event.data.type === 'proxyFetchStream') {
+            // Handle streaming data chunks
+            const controller = streamControllers.get(event.data.channelId);
+            if (controller) {
+              if (event.data.error) {
+                controller.error(new Error(event.data.error));
+                streamControllers.delete(event.data.channelId);
+              } else if (event.data.done) {
+                controller.close();
+                streamControllers.delete(event.data.channelId);
+                // Clean up the callback
+                const callback = Array.from(callbacksMap.entries()).find(
+                  ([_, value]) => value.channelId === event.data.channelId
+                );
+                if (callback) {
+                  callbacksMap.delete(callback[0]);
+                }
+              } else if (event.data.chunk) {
+                controller.enqueue(new Uint8Array(event.data.chunk));
+              }
+            }
+          } else if (event.data.type === 'storageGet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageSet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageDelete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageList') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          }
+        });
+
+        window.addEventListener('click', (event) => {
+          const isEl = event.target instanceof HTMLElement;
+          if (!isEl) return;
+    
+          // find ancestor links
+          const linkEl = event.target.closest("a");
+          if (!linkEl || !linkEl.href) return;
+    
+          event.preventDefault();
+          event.stopImmediatePropagation();
+    
+          if (linkEl.href.startsWith("blob-request:")) {
+            const blob = getBlobFromURL(linkEl.href);
+            if (!blob) return;
+            void blob.arrayBuffer().then((data) => {
+              realParent.postMessage({
+                type: "downloadFile",
+                filename: linkEl.download,
+                data,
+                mimeType: blob.type || "application/octet-stream",
+              });
+            });
+          } else if (linkEl.href.startsWith("data:")) {
+            const [header, base64Data] = linkEl.href.split(",");
+            const mimeMatch = header.match(/data:([^;]+)/);
+            const mimeType = mimeMatch ? mimeMatch[1] : "application/octet-stream";
+            const binaryString = atob(base64Data);
+            const data = Uint8Array.from(binaryString, (c) =>
+              c.charCodeAt(0),
+            ).buffer;
+            realParent.postMessage({
+              type: "downloadFile",
+              filename: linkEl.download,
+              data,
+              mimeType,
+            });
+          } else {
+            let linkUrl;
+            try {
+              linkUrl = new URL(linkEl.href);
+            } catch (error) {
+              return;
+            }
+    
+            if (linkUrl.hostname === window.location.hostname) return;
+      
+            realParent.postMessage({
+              type: 'openExternal',
+              href: linkEl.href,
+            }, '*');
+          }
+      });
+
+        const originalOpen = window.open;
+        window.open = function (url) {
+          realParent.postMessage({
+            type: "openExternal",
+            href: url,
+          }, "*");
+        };
+
+        window.addEventListener('error', (event) => {
+          realParent.postMessage({ type: 'console', message: 'Uncaught Error: ' + event.message }, '*');
+        });
+      })();
+    </script>
+  
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Vera's Potty Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&family=Fredoka+One&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+        body {
+            font-family: 'Quicksand', sans-serif;
+            background: linear-gradient(180deg, #e8f5e9 0%, #c8e6c9 100%);
+            height: 100%;
+            color: #2e7d32;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 10px 15px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .title {
+            font-family: 'Fredoka One', cursive;
+            font-size: 26px;
+            color: #2e7d32;
+            margin-bottom: 3px;
+        }
+        .subtitle {
+            font-size: 13px;
+            color: #66bb6a;
+        }
+        .duck-pond {
+            background: linear-gradient(180deg, #87CEEB 0%, #4A90A4 50%, #2E6B7A 100%);
+            border-radius: 20px;
+            padding: 15px;
+            margin-bottom: 12px;
+            min-height: 120px;
+            box-shadow: inset 0 4px 15px rgba(0,0,0,0.2), 0 4px 15px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        .pond-title {
+            font-family: 'Fredoka One', cursive;
+            font-size: 16px;
+            color: white;
+            text-align: center;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .pond-ducks {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 5px;
+            min-height: 60px;
+            align-items: center;
+        }
+        .pond-duck {
+            font-size: 28px;
+            animation: float 3s ease-in-out infinite;
+            display: inline-block;
+        }
+        .pond-duck.new {
+            animation: splashIn 0.6s ease forwards, float 3s ease-in-out 0.6s infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(-3deg); }
+            50% { transform: translateY(-5px) rotate(3deg); }
+        }
+        @keyframes splashIn {
+            0% { transform: translateY(-50px) scale(0); opacity: 0; }
+            60% { transform: translateY(10px) scale(1.2); opacity: 1; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        .pond-empty {
+            color: rgba(255,255,255,0.7);
+            font-size: 14px;
+            text-align: center;
+            font-style: italic;
+        }
+        .pond-ripple {
+            position: absolute;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.3);
+            animation: ripple 2s ease-out infinite;
+            pointer-events: none;
+        }
+        @keyframes ripple {
+            0% { transform: scale(0); opacity: 1; }
+            100% { transform: scale(3); opacity: 0; }
+        }
+        .buttons-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding-bottom: 45px;
+        }
+        .potty-btn {
+            font-family: 'Quicksand', sans-serif;
+            font-weight: 700;
+            font-size: 13px;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            padding: 14px 10px;
+            height: 110px;
+        }
+        .potty-btn:active {
+            transform: scale(0.95);
+        }
+        .potty-btn .icon {
+            font-size: 30px;
+        }
+        .btn-pullup-pee {
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+            color: #1976d2;
+            border: 3px solid #64b5f6;
+        }
+        .btn-pullup-poo {
+            background: linear-gradient(135deg, #efebe9, #d7ccc8);
+            color: #5d4037;
+            border: 3px solid #a1887f;
+        }
+        .btn-potty-pee {
+            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+            color: #2e7d32;
+            border: 3px solid #81c784;
+        }
+        .btn-potty-poo {
+            background: linear-gradient(135deg, #fff9c4, #fff176);
+            color: #f57f17;
+            border: 3px solid #ffeb3b;
+            animation: glow 2s infinite ease-in-out;
+        }
+        .btn-sitting {
+            background: linear-gradient(135deg, #e1bee7, #ce93d8);
+            color: #7b1fa2;
+            border: 3px solid #ba68c8;
+            grid-column: span 2;
+        }
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 10px rgba(255,235,59,0.5); }
+            50% { box-shadow: 0 0 25px rgba(255,235,59,0.8), 0 0 40px rgba(255,235,59,0.4); }
+        }
+        .reset-btn {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.1);
+            color: #81c784;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: 'Quicksand', sans-serif;
+        }
+        .utility-btn {
+            position: fixed;
+            bottom: 10px;
+            background: rgba(0,0,0,0.1);
+            color: #81c784;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: 'Quicksand', sans-serif;
+        }
+        .sound-test-btn {
+            left: 50%;
+            transform: translateX(-100%);
+            margin-left: -5px;
+        }
+        .undo-btn {
+            left: 50%;
+            transform: translateX(0%);
+            margin-left: 5px;
+        }
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .overlay.show {
+            opacity: 1;
+        }
+        .overlay-content {
+            text-align: center;
+            animation: popIn 0.5s ease;
+        }
+        @keyframes popIn {
+            0% { transform: scale(0); }
+            70% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        .overlay-icon {
+            font-size: 100px;
+            margin-bottom: 15px;
+        }
+        .overlay-text {
+            font-family: 'Fredoka One', cursive;
+            font-size: 28px;
+            color: white;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .overlay-pullup {
+            background: rgba(100,181,246,0.9);
+        }
+        .overlay-potty-pee {
+            background: rgba(129,199,132,0.95);
+        }
+        .overlay-jackpot {
+            background: linear-gradient(135deg, rgba(255,235,59,0.98), rgba(255,193,7,0.98));
+        }
+        .confetti {
+            position: fixed;
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            animation: fall linear forwards;
+            z-index: 150;
+            pointer-events: none;
+        }
+        @keyframes fall {
+            to { transform: translateY(100vh) rotate(720deg); }
+        }
+        .bounce-duck {
+            position: fixed;
+            font-size: 80px;
+            z-index: 200;
+            pointer-events: none;
+            animation: bounceDrop 1.5s ease forwards;
+        }
+        @keyframes bounceDrop {
+            0% { transform: translate(-50%, -150%) scale(0.5); opacity: 0; }
+            30% { transform: translate(-50%, -30%) scale(1.3); opacity: 1; }
+            50% { transform: translate(-50%, -60%) scale(1); }
+            70% { transform: translate(-50%, -40%) scale(1.1); }
+            85% { transform: translate(-50%, -50%) scale(1); }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+        .jackpot-duck {
+            position: fixed;
+            font-size: 60px;
+            z-index: 200;
+            pointer-events: none;
+            animation: jackpotDuck 3s ease forwards;
+        }
+        @keyframes jackpotDuck {
+            0% { transform: scale(0) rotate(0deg); opacity: 0; }
+            20% { transform: scale(1.5) rotate(20deg); opacity: 1; }
+            40% { transform: scale(1) rotate(-15deg); }
+            60% { transform: scale(1.3) rotate(10deg); }
+            80% { transform: scale(1) rotate(-5deg); }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        .jackpot-text {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Fredoka One', cursive;
+            font-size: 48px;
+            color: #f57f17;
+            text-shadow: 0 0 20px white, 0 0 40px #ffeb3b;
+            z-index: 250;
+            animation: jackpotText 0.5s ease;
+            pointer-events: none;
+        }
+        @keyframes jackpotText {
+            0% { transform: translate(-50%, -50%) scale(0) rotate(-10deg); }
+            50% { transform: translate(-50%, -50%) scale(1.3) rotate(5deg); }
+            100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+        }
+        .star-burst {
+            position: fixed;
+            font-size: 40px;
+            z-index: 180;
+            pointer-events: none;
+            animation: starBurst 1s ease forwards;
+        }
+        @keyframes starBurst {
+            0% { transform: scale(0); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+        .slot-reel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 80px;
+            z-index: 200;
+            pointer-events: none;
+        }
+        .slot-item {
+            animation: slotSpin 0.1s ease infinite;
+        }
+        @keyframes slotSpin {
+            0% { transform: translateY(-20px); opacity: 0.5; }
+            50% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(20px); opacity: 0.5; }
+        }
+    </style>
+</head>
+<body id="artifacts-component-root-html">
+    <div class="container">
+        <div class="header">
+            <div class="title">🚽 Vera's Potty Tracker 🌟</div>
+            <div class="subtitle">This week's progress!</div>
+        </div>
+        
+        <div class="duck-pond">
+            <div class="pond-title">🦆 Duck Pond — <span id="totalDucks">0</span> Ducks!</div>
+            <div class="pond-ducks" id="pondDucks">
+                <div class="pond-empty">Earn ducks by using the potty!</div>
+            </div>
+        </div>
+        
+        <div class="buttons-container">
+            <button class="potty-btn btn-pullup-pee" onclick="recordPullupPee()">
+                <span class="icon">💧</span>
+                <span>Pee Pee<br>in Pull-up</span>
+            </button>
+            <button class="potty-btn btn-pullup-poo" onclick="recordPullupPoo()">
+                <span class="icon">💩</span>
+                <span>Poopy<br>in Pull-up</span>
+            </button>
+            <button class="potty-btn btn-potty-pee" onclick="recordPottyPee()">
+                <span class="icon">🚽💧</span>
+                <span>Pee Pee<br>in Potty!</span>
+            </button>
+            <button class="potty-btn btn-potty-poo" onclick="recordPottyPoo()">
+                <span class="icon">🚽💩</span>
+                <span>Poopy<br>in Potty!</span>
+            </button>
+            <button class="potty-btn btn-sitting" onclick="recordSitting()">
+                <span class="icon">🪑</span>
+                <span>Sat on<br>Potty!</span>
+            </button>
+        </div>
+    </div>
+    
+    <div class="overlay" id="overlay">
+        <div class="overlay-content">
+            <div class="overlay-icon" id="overlayIcon"></div>
+            <div class="overlay-text" id="overlayText"></div>
+        </div>
+    </div>
+    
+    <button class="reset-btn" onclick="resetWeek()">↺ Reset Week</button>
+    <button class="utility-btn sound-test-btn" onclick="soundTest()">🔔 Test Sound</button>
+    <button class="utility-btn undo-btn" onclick="undoLast()">↩ Undo</button>
+    
+    <script>
+        var audioCtx = null;
+        var audioInitialized = false;
+        
+        function initAudio() {
+            if (audioInitialized && audioCtx && audioCtx.state === 'running') return;
+            
+            try {
+                if (!audioCtx || audioCtx.state === 'closed') {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                audioInitialized = true;
+            } catch(e) {
+                console.log('Audio init error:', e);
+            }
+        }
+        
+        function playAcknowledge() {
+            try {
+                initAudio();
+                if (!audioCtx) return;
+                
+                var osc = audioCtx.createOscillator();
+                var gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(520, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc.start(audioCtx.currentTime);
+                osc.stop(audioCtx.currentTime + 0.2);
+            } catch(e) {
+                console.log('Audio error:', e);
+            }
+        }
+        
+        function playDuckReward() {
+            try {
+                initAudio();
+                if (!audioCtx) return;
+                
+                var notes = [523, 659, 784, 1047];
+                notes.forEach(function(freq, i) {
+                    var osc = audioCtx.createOscillator();
+                    var gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.1);
+                    gain.gain.setValueAtTime(0.01, audioCtx.currentTime + i * 0.1);
+                    gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + i * 0.1 + 0.05);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.1 + 0.3);
+                    osc.start(audioCtx.currentTime + i * 0.1);
+                    osc.stop(audioCtx.currentTime + i * 0.1 + 0.3);
+                });
+            } catch(e) {
+                console.log('Audio error:', e);
+            }
+        }
+        
+        function playDing() {
+            try {
+                initAudio();
+                if (!audioCtx) return;
+                
+                var osc = audioCtx.createOscillator();
+                var gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                osc.start(audioCtx.currentTime);
+                osc.stop(audioCtx.currentTime + 0.4);
+            } catch(e) {
+                console.log('Audio error:', e);
+            }
+        }
+        
+        function soundTest() {
+            initAudio();
+            playDing();
+            showOverlay('pullup', '🔔', 'Sound OK!', 800);
+        }
+        
+        var lastAction = null;
+        
+        function undoLast() {
+            if (!lastAction) {
+                showOverlay('pullup', '❌', 'Nothing to undo', 800);
+                return;
+            }
+            
+            if (lastAction === 'pullupPee' && stats.pullupPee > 0) {
+                stats.pullupPee--;
+            } else if (lastAction === 'pullupPoo' && stats.pullupPoo > 0) {
+                stats.pullupPoo--;
+            } else if (lastAction === 'pottyPee' && stats.pottyPee > 0) {
+                stats.pottyPee--;
+                stats.ducks = Math.max(0, stats.ducks - 1);
+            } else if (lastAction === 'pottyPoo' && stats.pottyPoo > 0) {
+                stats.pottyPoo--;
+                stats.ducks = Math.max(0, stats.ducks - 5);
+            } else if (lastAction === 'sitting') {
+                // Nothing to undo for sitting
+            }
+            
+            saveStats();
+            updateDisplay(0);
+            showOverlay('pullup', '↩', 'Undone!', 800);
+            playAcknowledge();
+            lastAction = null;
+        }
+        
+        function playJackpot() {
+            try {
+                initAudio();
+                if (!audioCtx) return;
+                
+                var times = [0, 0.15, 0.3, 0.45, 0.6, 0.8, 1.0, 1.2];
+                var freqs = [523, 587, 659, 698, 784, 880, 988, 1047];
+                
+                times.forEach(function(time, i) {
+                    var osc = audioCtx.createOscillator();
+                    var gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(freqs[i], audioCtx.currentTime + time);
+                    gain.gain.setValueAtTime(0.01, audioCtx.currentTime + time);
+                    gain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + time + 0.02);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + time + 0.12);
+                    osc.start(audioCtx.currentTime + time);
+                    osc.stop(audioCtx.currentTime + time + 0.12);
+                });
+                
+                // Big final chord
+                setTimeout(function() {
+                    if (!audioCtx) return;
+                    [523, 659, 784, 1047].forEach(function(freq) {
+                        var osc = audioCtx.createOscillator();
+                        var gain = audioCtx.createGain();
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                        gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+                        osc.start(audioCtx.currentTime);
+                        osc.stop(audioCtx.currentTime + 0.8);
+                    });
+                }, 1400);
+                
+            } catch(e) {
+                console.log('Audio error:', e);
+            }
+        }
+        
+        var stats = {
+            pullupPee: 0,
+            pullupPoo: 0,
+            pottyPee: 0,
+            pottyPoo: 0,
+            ducks: 0
+        };
+        
+        function loadStats() {
+            var saved = localStorage.getItem('verasPottyStats');
+            if (saved) {
+                try {
+                    var parsed = JSON.parse(saved);
+                    stats = parsed;
+                } catch(e) {}
+            }
+            checkWeekReset();
+            updateDisplay(0);
+        }
+        
+        function checkWeekReset() {
+            var lastReset = localStorage.getItem('verasPottyLastReset');
+            var now = new Date();
+            var currentDay = now.getDay();
+            
+            if (lastReset) {
+                var lastDate = new Date(lastReset);
+                var daysSinceReset = Math.floor((now - lastDate) / (1000 * 60 * 60 * 24));
+                
+                if ((currentDay === 1 && daysSinceReset >= 1) || daysSinceReset >= 7) {
+                    stats = {
+                        pullupPee: 0,
+                        pullupPoo: 0,
+                        pottyPee: 0,
+                        pottyPoo: 0,
+                        ducks: 0
+                    };
+                    saveStats();
+                    localStorage.setItem('verasPottyLastReset', now.toISOString());
+                }
+            } else {
+                localStorage.setItem('verasPottyLastReset', now.toISOString());
+            }
+        }
+        
+        function saveStats() {
+            localStorage.setItem('verasPottyStats', JSON.stringify(stats));
+        }
+        
+        function updateDisplay(newDucks) {
+            document.getElementById('totalDucks').textContent = stats.ducks;
+            
+            var pondContainer = document.getElementById('pondDucks');
+            
+            if (stats.ducks === 0) {
+                pondContainer.innerHTML = '<div class="pond-empty">Earn ducks by using the potty!</div>';
+            } else {
+                var html = '';
+                for (var i = 0; i < Math.min(stats.ducks, 30); i++) {
+                    var isNew = newDucks && i >= (stats.ducks - newDucks);
+                    var delay = isNew ? (i - (stats.ducks - newDucks)) * 0.15 : 0;
+                    html += '<span class="pond-duck' + (isNew ? ' new' : '') + '" style="animation-delay: ' + delay + 's, ' + (delay + 0.6 + Math.random()) + 's">🦆</span>';
+                }
+                if (stats.ducks > 30) {
+                    html += '<span style="color: white; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.3);"> +' + (stats.ducks - 30) + '</span>';
+                }
+                pondContainer.innerHTML = html;
+            }
+        }
+        
+        function addDucksToPond(count) {
+            updateDisplay(count);
+        }
+        
+        function showOverlay(type, icon, text, duration) {
+            var overlay = document.getElementById('overlay');
+            var overlayIcon = document.getElementById('overlayIcon');
+            var overlayText = document.getElementById('overlayText');
+            
+            overlay.className = 'overlay overlay-' + type + ' show';
+            overlayIcon.textContent = icon;
+            overlayText.textContent = text;
+            
+            setTimeout(function() {
+                overlay.classList.remove('show');
+            }, duration);
+        }
+        
+        function spawnConfetti(count, duration) {
+            var colors = ['#ffeaa7', '#74b9ff', '#a29bfe', '#00b894', '#fd79a8', '#ff7675', '#fdcb6e'];
+            for (var i = 0; i < count; i++) {
+                (function(i) {
+                    setTimeout(function() {
+                        var c = document.createElement('div');
+                        c.className = 'confetti';
+                        c.style.left = Math.random() * 100 + '%';
+                        c.style.top = '-20px';
+                        c.style.background = colors[Math.floor(Math.random() * colors.length)];
+                        c.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                        c.style.width = (Math.random() * 10 + 8) + 'px';
+                        c.style.height = (Math.random() * 10 + 8) + 'px';
+                        document.body.appendChild(c);
+                        setTimeout(function() { if (c.parentNode) c.parentNode.removeChild(c); }, 4000);
+                    }, i * (duration / count));
+                })(i);
+            }
+        }
+        
+        function spawnDuck(x, y) {
+            var duck = document.createElement('div');
+            duck.className = 'bounce-duck';
+            duck.textContent = '🦆';
+            duck.style.left = x + '%';
+            duck.style.top = y + '%';
+            document.body.appendChild(duck);
+            setTimeout(function() { if (duck.parentNode) duck.parentNode.removeChild(duck); }, 3000);
+        }
+        
+        function spawnJackpotDucks() {
+            var positions = [
+                {x: 20, y: 30}, {x: 80, y: 30}, {x: 50, y: 20},
+                {x: 30, y: 60}, {x: 70, y: 60}, {x: 50, y: 70},
+                {x: 15, y: 50}, {x: 85, y: 50}
+            ];
+            positions.forEach(function(pos, i) {
+                setTimeout(function() {
+                    var duck = document.createElement('div');
+                    duck.className = 'jackpot-duck';
+                    duck.textContent = '🦆';
+                    duck.style.left = pos.x + '%';
+                    duck.style.top = pos.y + '%';
+                    document.body.appendChild(duck);
+                    setTimeout(function() { if (duck.parentNode) duck.parentNode.removeChild(duck); }, 4500);
+                }, i * 150);
+            });
+        }
+        
+        function spawnStars() {
+            for (var i = 0; i < 12; i++) {
+                (function(i) {
+                    setTimeout(function() {
+                        var star = document.createElement('div');
+                        star.className = 'star-burst';
+                        star.textContent = '⭐';
+                        star.style.left = (Math.random() * 80 + 10) + '%';
+                        star.style.top = (Math.random() * 80 + 10) + '%';
+                        document.body.appendChild(star);
+                        setTimeout(function() { if (star.parentNode) star.parentNode.removeChild(star); }, 1000);
+                    }, i * 100);
+                })(i);
+            }
+        }
+        
+        function showJackpotText() {
+            var texts = ['JACKPOT!!!', '🎉 WOW!!! 🎉', 'AMAZING!!!', '⭐ SUPERSTAR ⭐'];
+            texts.forEach(function(text, i) {
+                setTimeout(function() {
+                    var el = document.createElement('div');
+                    el.className = 'jackpot-text';
+                    el.textContent = text;
+                    el.style.fontSize = (48 - i * 5) + 'px';
+                    document.body.appendChild(el);
+                    setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, 800);
+                }, i * 800);
+            });
+        }
+        
+        function recordPullupPee() {
+            stats.pullupPee++;
+            lastAction = 'pullupPee';
+            saveStats();
+            updateDisplay();
+            playAcknowledge();
+            showOverlay('pullup', '💧', 'Got it!', 1000);
+        }
+        
+        function recordPullupPoo() {
+            stats.pullupPoo++;
+            lastAction = 'pullupPoo';
+            saveStats();
+            updateDisplay();
+            playAcknowledge();
+            showOverlay('pullup', '💩', 'Got it!', 1000);
+        }
+        
+        function recordPottyPee() {
+            stats.pottyPee++;
+            stats.ducks++;
+            lastAction = 'pottyPee';
+            saveStats();
+            addDucksToPond(1);
+            playDuckReward();
+            showOverlay('potty-pee', '🚽💧', 'Great job! +1 🦆', 2000);
+            spawnConfetti(30, 1000);
+            setTimeout(function() { spawnDuck(50, 50); }, 500);
+        }
+        
+        function recordPottyPoo() {
+            stats.pottyPoo++;
+            stats.ducks += 5;
+            lastAction = 'pottyPoo';
+            saveStats();
+            
+            // JACKPOT CELEBRATION!!!
+            playJackpot();
+            
+            // Flash background
+            document.body.style.transition = 'background 0.1s';
+            var flashColors = ['#fff9c4', '#ffeb3b', '#ffc107', '#ff9800'];
+            var flashCount = 0;
+            var flashInterval = setInterval(function() {
+                document.body.style.background = flashColors[flashCount % flashColors.length];
+                flashCount++;
+                if (flashCount > 20) {
+                    clearInterval(flashInterval);
+                    document.body.style.background = 'linear-gradient(180deg, #e8f5e9 0%, #c8e6c9 100%)';
+                }
+            }, 100);
+            
+            // Confetti explosion
+            spawnConfetti(100, 2000);
+            
+            // Stars
+            setTimeout(spawnStars, 300);
+            setTimeout(spawnStars, 1000);
+            setTimeout(spawnStars, 1700);
+            
+            // Ducks everywhere
+            setTimeout(spawnJackpotDucks, 500);
+            setTimeout(spawnJackpotDucks, 1500);
+            
+            // Jackpot text
+            setTimeout(showJackpotText, 200);
+            
+            // Add 5 ducks to pond after celebration starts
+            setTimeout(function() { addDucksToPond(5); }, 500);
+            
+            // Keep showing more ducks
+            setTimeout(function() {
+                spawnDuck(30, 40);
+                spawnDuck(70, 40);
+            }, 2500);
+            
+            setTimeout(function() {
+                spawnDuck(50, 30);
+            }, 3000);
+        }
+        
+        function recordSitting() {
+            lastAction = 'sitting';
+            playAcknowledge();
+            showOverlay('pullup', '🪑', 'Good try!', 1000);
+        }
+        
+        function resetWeek() {
+            stats = {
+                pullupPee: 0,
+                pullupPoo: 0,
+                pottyPee: 0,
+                pottyPoo: 0,
+                ducks: 0
+            };
+            saveStats();
+            localStorage.setItem('verasPottyLastReset', new Date().toISOString());
+            updateDisplay(0);
+            
+            // Show brief confirmation
+            showOverlay('pullup', '✓', 'Week Reset!', 1000);
+            playAcknowledge();
+        }
+        
+        document.addEventListener('click', initAudio);
+        document.addEventListener('touchstart', initAudio);
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) initAudio();
+        });
+        
+        loadStats();
+    </script>
+</body>
+</html>

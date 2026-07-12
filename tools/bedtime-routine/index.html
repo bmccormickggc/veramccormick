@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="robots" content="noindex,nofollow">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.13/html-to-image.min.js" integrity="sha512-iZ2ORl595Wx6miw+GuadDet4WQbdSWS3JLMoNfY8cRGoEFy6oT3G9IbcrBeL6AfkgpA51ETt/faX6yLV+/gFJg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+      (function() {
+        // Capture host references before any artifact code runs: Window.parent
+        // is [Replaceable] (a top-level `var parent` in artifact code would
+        // replace the accessor with a data property), and a top-level
+        // `const crypto` would shadow the global — either would otherwise
+        // silently break the bridge for artifacts that worked before.
+        const realParent = window.parent;
+        const cryptoObj = window.crypto;
+        // crypto.randomUUID exists only in Secure Contexts; fall back to a
+        // unique non-crypto id elsewhere (http://LAN-IP dev flows) —
+        // uniqueness is what the bridge needs, unpredictability is
+        // defense-in-depth on top of the source guards.
+        const newRequestId =
+          cryptoObj && typeof cryptoObj.randomUUID === "function"
+            ? function () { return cryptoObj.randomUUID(); }
+            : function () { return Date.now() + "-" + Math.random(); };
+        const originalConsole = window.console;
+        window.console = {
+          log: (...args) => {
+            originalConsole.log(...args);
+            realParent.postMessage({ type: 'console', message: args.join(' ') }, '*');
+          },
+          error: (...args) => {
+            originalConsole.error(...args);
+            realParent.postMessage({ type: 'console', message: 'Error: ' + args.join(' ') }, '*');
+          },
+          warn: (...args) => {
+            originalConsole.warn(...args);
+            realParent.postMessage({ type: 'console', message: 'Warning: ' + args.join(' ') }, '*');
+          }
+        };
+
+        // Bridge request ids are crypto-random (not sequential) so they
+        // cannot be predicted by other frames in the tab.
+        let callbacksMap = new Map();
+        let streamControllers = new Map();
+        
+        window.claude = {
+          complete: (prompt) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'claudeComplete', id, prompt }, '*');
+            });
+          }
+        };
+
+        window.storage = {
+          get: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageGet', id, key, shared }, '*');
+            });
+          },
+          set: (key, value, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageSet', id, key, value, shared }, '*');
+            });
+          },
+          delete: (key, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageDelete', id, key, shared }, '*');
+            });
+          },
+          list: (prefix, shared = false) => {
+            return new Promise((resolve, reject) => {
+              const id = newRequestId();
+              callbacksMap.set(id, { resolve, reject });
+              realParent.postMessage({ type: 'storageList', id, prefix, shared }, '*');
+            });
+          }
+        };
+
+        let pendingBlobs = new Map();
+        URL.createObjectURL = (blob) => {
+          // Store the blob and create an ID and URL for it
+          const blobId = `blob-${Date.now()}-${Math.random()}`;
+          pendingBlobs.set(blobId, blob);
+          return `blob-request://${blobId}`;
+        };
+
+        URL.revokeObjectURL = (url) => {
+          // Remove the blob from our store
+          const blobId = url.replace("blob-request://", "");
+          pendingBlobs.delete(blobId);
+        };
+
+        const getBlobFromURL = (url) => {
+          const blobId = url.replace("blob-request://", "");
+          return pendingBlobs.get(blobId);
+        };
+
+        // Override global fetch with streaming support
+        window.fetch = (url, init = {}) => {
+          return new Promise((resolve, reject) => {
+            const id = newRequestId();
+            const channelId = `fetch-${id}-${Date.now()}`;
+            
+            callbacksMap.set(id, { 
+              resolve: (response) => {
+                // Null-body statuses: Response(stream, {status: 204}) throws
+                // per the Fetch spec, which would escape this resolver and
+                // hang the artifact's await forever.
+                if (response.status === 204 || response.status === 205 || response.status === 304) {
+                  try {
+                    resolve(new Response(null, {
+                      status: response.status,
+                      statusText: response.statusText,
+                      headers: response.headers
+                    }));
+                  } catch (err) {
+                    // Invalid statusText/header bytes can throw here too.
+                    reject(new TypeError(
+                      'Bridge fetch: unconstructable response (status ' + response.status + ')'
+                    ));
+                  }
+                  return;
+                }
+                // Create a ReadableStream for the response body
+                const stream = new ReadableStream({
+                  start(controller) {
+                    streamControllers.set(channelId, controller);
+                  },
+                  cancel() {
+                    streamControllers.delete(channelId);
+                  }
+                });
+                
+                // Create and return the Response with the stream. Response()
+                // requires status in [200, 599]; an opaque/no-cors fetch
+                // forwards status 0, which would throw here and escape the
+                // resolver, hanging the artifact's await. Surface it as a
+                // network-error-shaped rejection instead.
+                try {
+                  resolve(new Response(stream, {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: response.headers
+                  }));
+                } catch (err) {
+                  streamControllers.delete(channelId);
+                  reject(new TypeError(
+                    'Bridge fetch: unconstructable response (status ' + response.status + ')'
+                  ));
+                }
+              },
+              reject,
+              channelId
+            });
+            
+            realParent.postMessage({
+              type: 'proxyFetch',
+              id,
+              url,
+              init,
+              channelId
+            }, '*');
+          });
+        };
+
+        window.addEventListener('message', async (event) => {
+          // Only the embedding parent may drive the bridge — sibling and
+          // nested frames can also postMessage into this window.
+          if (event.source !== realParent) return;
+          if (event.data.type === 'takeScreenshot') {
+            // Echo the request's nonce so the requester can correlate the
+            // reply to ITS request — a reply without the expected nonce
+            // (e.g. from a stale pre-remount artifact) is ignored upstream.
+            const screenshotNonce = event.data.nonce;
+            const rootElement = document.getElementById('artifacts-component-root-html');
+            if (!rootElement) {
+              realParent.postMessage({
+                type: 'screenshotError',
+                nonce: screenshotNonce,
+                error: new Error('Root element not found'),
+              }, '*');
+              return;
+            }
+            // Catch CDN load failures (htmlToImage undefined) and toPng errors
+            // so the parent always gets a response instead of hanging forever.
+            try {
+              const screenshot = await htmlToImage.toPng(rootElement, {
+                imagePlaceholder:
+                  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAA1JREFUGFdjePDgwX8ACOQDoNsk0PMAAAAASUVORK5CYII=",
+              });
+              realParent.postMessage({
+                type: 'screenshotData',
+                nonce: screenshotNonce,
+                data: screenshot,
+              }, '*');
+            } catch (err) {
+              realParent.postMessage({
+                type: 'screenshotError',
+                nonce: screenshotNonce,
+                error: err instanceof Error ? err : new Error(String(err)),
+              }, '*');
+            }
+          } else if (event.data.type === 'claudeComplete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.completion);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'proxyFetchResponse') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+              callbacksMap.delete(event.data.id);
+            } else {
+              // Initial response with headers, status, etc.
+              callback.resolve({
+                status: event.data.status,
+                statusText: event.data.statusText,
+                headers: event.data.headers
+              });
+              // Don't delete the callback yet if streaming
+              if (!event.data.body) {
+                callbacksMap.delete(event.data.id);
+              }
+            }
+          } else if (event.data.type === 'proxyFetchStream') {
+            // Handle streaming data chunks
+            const controller = streamControllers.get(event.data.channelId);
+            if (controller) {
+              if (event.data.error) {
+                controller.error(new Error(event.data.error));
+                streamControllers.delete(event.data.channelId);
+              } else if (event.data.done) {
+                controller.close();
+                streamControllers.delete(event.data.channelId);
+                // Clean up the callback
+                const callback = Array.from(callbacksMap.entries()).find(
+                  ([_, value]) => value.channelId === event.data.channelId
+                );
+                if (callback) {
+                  callbacksMap.delete(callback[0]);
+                }
+              } else if (event.data.chunk) {
+                controller.enqueue(new Uint8Array(event.data.chunk));
+              }
+            }
+          } else if (event.data.type === 'storageGet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageSet') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageDelete') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          } else if (event.data.type === 'storageList') {
+            const callback = callbacksMap.get(event.data.id);
+            if (!callback) return;
+            if (event.data.error) {
+              callback.reject(new Error(event.data.error));
+            } else {
+              callback.resolve(event.data.result);
+            }
+            callbacksMap.delete(event.data.id);
+          }
+        });
+
+        window.addEventListener('click', (event) => {
+          const isEl = event.target instanceof HTMLElement;
+          if (!isEl) return;
+    
+          // find ancestor links
+          const linkEl = event.target.closest("a");
+          if (!linkEl || !linkEl.href) return;
+    
+          event.preventDefault();
+          event.stopImmediatePropagation();
+    
+          if (linkEl.href.startsWith("blob-request:")) {
+            const blob = getBlobFromURL(linkEl.href);
+            if (!blob) return;
+            void blob.arrayBuffer().then((data) => {
+              realParent.postMessage({
+                type: "downloadFile",
+                filename: linkEl.download,
+                data,
+                mimeType: blob.type || "application/octet-stream",
+              });
+            });
+          } else if (linkEl.href.startsWith("data:")) {
+            const [header, base64Data] = linkEl.href.split(",");
+            const mimeMatch = header.match(/data:([^;]+)/);
+            const mimeType = mimeMatch ? mimeMatch[1] : "application/octet-stream";
+            const binaryString = atob(base64Data);
+            const data = Uint8Array.from(binaryString, (c) =>
+              c.charCodeAt(0),
+            ).buffer;
+            realParent.postMessage({
+              type: "downloadFile",
+              filename: linkEl.download,
+              data,
+              mimeType,
+            });
+          } else {
+            let linkUrl;
+            try {
+              linkUrl = new URL(linkEl.href);
+            } catch (error) {
+              return;
+            }
+    
+            if (linkUrl.hostname === window.location.hostname) return;
+      
+            realParent.postMessage({
+              type: 'openExternal',
+              href: linkEl.href,
+            }, '*');
+          }
+      });
+
+        const originalOpen = window.open;
+        window.open = function (url) {
+          realParent.postMessage({
+            type: "openExternal",
+            href: url,
+          }, "*");
+        };
+
+        window.addEventListener('error', (event) => {
+          realParent.postMessage({ type: 'console', message: 'Uncaught Error: ' + event.message }, '*');
+        });
+      })();
+    </script>
+  
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Vera's Bedtime</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #1a1a2e;
+            color: #e8e8e8;
+            height: 100%;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        /* Duck pond at top - calm water */
+        .pond {
+            background: linear-gradient(180deg, #2d4a5e 0%, #1e3a4c 100%);
+            border-radius: 20px;
+            padding: 15px;
+            margin-bottom: 15px;
+            min-height: 100px;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .pond-label {
+            font-size: 12px;
+            color: #7a9bb0;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        .pond-ducks {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 6px;
+            min-height: 50px;
+            align-items: center;
+        }
+        .pond-duck {
+            font-size: 24px;
+            opacity: 0;
+            animation: gentleFadeIn 0.8s ease forwards;
+        }
+        @keyframes gentleFadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .pond-empty {
+            color: #5a7a8a;
+            font-size: 13px;
+            font-style: italic;
+        }
+        /* Progress */
+        .progress {
+            text-align: center;
+            font-size: 13px;
+            color: #7a9bb0;
+            margin-bottom: 15px;
+        }
+        /* Step card */
+        .step-card {
+            background: #252540;
+            border-radius: 20px;
+            padding: 30px 25px;
+            text-align: center;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .step-icon {
+            font-size: 60px;
+            margin-bottom: 15px;
+        }
+        .step-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #c9b8e0;
+        }
+        .step-subtitle {
+            font-size: 14px;
+            color: #8888a0;
+            margin-bottom: 30px;
+        }
+        .btn {
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 16px;
+            padding: 16px 32px;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn:active {
+            transform: scale(0.97);
+        }
+        .btn-done {
+            background: linear-gradient(135deg, #4a5a6a 0%, #3a4a5a 100%);
+            color: #d0d8e0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .btn-start {
+            background: linear-gradient(135deg, #5a6a8a 0%, #4a5a7a 100%);
+            color: #e0e8f0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        /* Bottom buttons */
+        .bottom-btns {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            padding: 0 10px;
+        }
+        .btn-small {
+            background: transparent;
+            border: none;
+            color: #5a6a7a;
+            font-size: 13px;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .btn-remove {
+            background: rgba(180, 40, 40, 0.3);
+            border: 2px solid #c0392b;
+            color: #e74c3c;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 10px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        /* Cover page */
+        .cover {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .cover-icon {
+            font-size: 70px;
+            margin-bottom: 20px;
+            animation: gentleFloat 4s ease-in-out infinite;
+        }
+        @keyframes gentleFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        .cover-title {
+            font-size: 28px;
+            font-weight: 600;
+            color: #c9b8e0;
+            margin-bottom: 8px;
+        }
+        .cover-subtitle {
+            font-size: 14px;
+            color: #7a7a90;
+            margin-bottom: 30px;
+        }
+        /* Celebration - gentle */
+        .celebration {
+            text-align: center;
+        }
+        .celebration-duck {
+            font-size: 80px;
+            animation: gentleFloat 3s ease-in-out infinite;
+        }
+        .celebration-title {
+            font-size: 24px;
+            color: #c9b8e0;
+            margin-top: 15px;
+        }
+        .celebration-sub {
+            font-size: 14px;
+            color: #7a7a90;
+            margin-top: 8px;
+        }
+        .hidden { display: none !important; }
+        
+        /* Gentle duck add animation */
+        .duck-add {
+            position: fixed;
+            transform: translate(-50%, -50%);
+            font-size: 40px;
+            opacity: 0;
+            animation: gentlePop 1.2s ease forwards;
+            pointer-events: none;
+            z-index: 100;
+        }
+        @keyframes gentlePop {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            30% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+            60% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -70%) scale(0.9); }
+        }
+        
+        /* Gentle celebration stars */
+        .gentle-star {
+            position: fixed;
+            bottom: 0;
+            font-size: 24px;
+            opacity: 0;
+            animation: floatUp 3s ease forwards;
+            pointer-events: none;
+            z-index: 100;
+        }
+        @keyframes floatUp {
+            0% { opacity: 0; transform: translateY(0); }
+            20% { opacity: 0.8; }
+            80% { opacity: 0.6; }
+            100% { opacity: 0; transform: translateY(-100vh); }
+        }
+        
+        /* Scary penalty X */
+        .penalty-x {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 120px;
+            color: #e74c3c;
+            text-shadow: 0 0 30px rgba(231, 76, 60, 0.8), 0 0 60px rgba(231, 76, 60, 0.4);
+            z-index: 200;
+            pointer-events: none;
+            animation: penaltyShake 0.6s ease forwards;
+        }
+        @keyframes penaltyShake {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+            20% { transform: translate(-50%, -50%) scale(1.2) rotate(-10deg); opacity: 1; }
+            40% { transform: translate(-50%, -50%) scale(1) rotate(10deg); }
+            60% { transform: translate(-50%, -50%) scale(1.1) rotate(-5deg); }
+            80% { transform: translate(-50%, -50%) scale(1) rotate(0); }
+            100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+        }
+        
+        /* Confirmation modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 300;
+        }
+        .modal {
+            background: #2a2a40;
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            max-width: 300px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+        .modal-icon {
+            font-size: 50px;
+            margin-bottom: 15px;
+        }
+        .modal-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #e8e8e8;
+            margin-bottom: 8px;
+        }
+        .modal-subtitle {
+            font-size: 14px;
+            color: #8888a0;
+            margin-bottom: 25px;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+        .btn-cancel {
+            background: #4a5a6a;
+            color: #d0d8e0;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .btn-confirm-remove {
+            background: #c0392b;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
+    </style>
+</head>
+<body id="artifacts-component-root-html">
+    <div class="container">
+        <!-- Cover Page -->
+        <div class="cover" id="coverPage">
+            <div class="cover-icon">🌙</div>
+            <div class="cover-title">Vera's Bedtime</div>
+            <div class="cover-subtitle">7 steps to dreamland</div>
+            <button class="btn btn-start" onclick="startRoutine()">Begin</button>
+        </div>
+        
+        <!-- Main Routine -->
+        <div class="hidden" id="routinePage">
+            <div class="pond">
+                <div class="pond-label">Duck Pond</div>
+                <div class="pond-ducks" id="pondDucks">
+                    <span class="pond-empty">Ducks will gather here...</span>
+                </div>
+            </div>
+            <div class="progress" id="progress">Step 1 of 7</div>
+            <div class="step-card" id="stepCard"></div>
+            <div class="bottom-btns">
+                <button class="btn-small" onclick="resetRoutine()">Start Over</button>
+                <button class="btn-small" onclick="playTestSound()">🔔</button>
+                <button class="btn-small hidden" id="backBtn" onclick="goBack()">← Back</button>
+                <button class="btn-remove" id="removeBtn" onclick="removeDuck()">✖ Remove Duck</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Penalty X overlay -->
+    <div class="penalty-x hidden" id="penaltyX">✖</div>
+    
+    <!-- Confirmation modal -->
+    <div class="modal-overlay hidden" id="confirmModal">
+        <div class="modal">
+            <div class="modal-icon">😢</div>
+            <div class="modal-title">Remove a duck?</div>
+            <div class="modal-subtitle">This duck will leave the pond</div>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeModal()">No, keep it</button>
+                <button class="btn-confirm-remove" onclick="confirmRemoveDuck()">Yes, remove</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Audio
+        var audioCtx = null;
+        
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+        
+        function playTestSound() {
+            initAudio();
+            playGentleTone();
+        }
+        
+        function playGentleTone() {
+            if (!audioCtx) return;
+            try {
+                var osc = audioCtx.createOscillator();
+                var gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                osc.start(audioCtx.currentTime);
+                osc.stop(audioCtx.currentTime + 0.5);
+            } catch(e) {}
+        }
+        
+        function playSoftChime() {
+            if (!audioCtx) return;
+            try {
+                // Soft two-note chime
+                [523, 659].forEach(function(freq, i) {
+                    var osc = audioCtx.createOscillator();
+                    var gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.15);
+                    gain.gain.setValueAtTime(0.01, audioCtx.currentTime + i * 0.15);
+                    gain.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + i * 0.15 + 0.05);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.15 + 0.4);
+                    osc.start(audioCtx.currentTime + i * 0.15);
+                    osc.stop(audioCtx.currentTime + i * 0.15 + 0.4);
+                });
+            } catch(e) {}
+        }
+        
+        function playRewardChime() {
+            if (!audioCtx) return;
+            try {
+                // Warm ascending arpeggio - rewarding but gentle
+                var notes = [392, 494, 587, 784]; // G4, B4, D5, G5
+                notes.forEach(function(freq, i) {
+                    var osc = audioCtx.createOscillator();
+                    var gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.type = 'sine';
+                    var startTime = audioCtx.currentTime + i * 0.12;
+                    osc.frequency.setValueAtTime(freq, startTime);
+                    gain.gain.setValueAtTime(0.01, startTime);
+                    gain.gain.linearRampToValueAtTime(0.12, startTime + 0.04);
+                    gain.gain.linearRampToValueAtTime(0.01, startTime + 0.5);
+                    osc.start(startTime);
+                    osc.stop(startTime + 0.5);
+                });
+            } catch(e) {}
+        }
+        
+        function playCelebrationSound() {
+            if (!audioCtx) return;
+            try {
+                // Gentle major chord that swells and fades
+                var notes = [262, 330, 392, 523]; // C major with octave
+                notes.forEach(function(freq) {
+                    var osc = audioCtx.createOscillator();
+                    var gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.01, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + 0.3);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 1.5);
+                    osc.start(audioCtx.currentTime);
+                    osc.stop(audioCtx.currentTime + 1.5);
+                });
+            } catch(e) {}
+        }
+        
+        function playNegativeBuzzer() {
+            if (!audioCtx) return;
+            try {
+                // Harsh buzzer - two dissonant square waves
+                var osc1 = audioCtx.createOscillator();
+                var osc2 = audioCtx.createOscillator();
+                var gain = audioCtx.createGain();
+                osc1.connect(gain);
+                osc2.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc1.type = 'square';
+                osc2.type = 'sawtooth';
+                osc1.frequency.setValueAtTime(110, audioCtx.currentTime);
+                osc2.frequency.setValueAtTime(117, audioCtx.currentTime); // Dissonant
+                
+                gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.1);
+                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                
+                osc1.start(audioCtx.currentTime);
+                osc2.start(audioCtx.currentTime);
+                osc1.stop(audioCtx.currentTime + 0.4);
+                osc2.stop(audioCtx.currentTime + 0.4);
+            } catch(e) {}
+        }
+        
+        function removeDuck() {
+            if (duckCount > 0) {
+                document.getElementById('confirmModal').classList.remove('hidden');
+            }
+        }
+        
+        function closeModal() {
+            document.getElementById('confirmModal').classList.add('hidden');
+        }
+        
+        function confirmRemoveDuck() {
+            document.getElementById('confirmModal').classList.add('hidden');
+            
+            if (duckCount > 0) {
+                initAudio();
+                playNegativeBuzzer();
+                
+                // Show penalty X
+                var penaltyX = document.getElementById('penaltyX');
+                penaltyX.classList.remove('hidden');
+                penaltyX.style.animation = 'none';
+                penaltyX.offsetHeight; // Trigger reflow
+                penaltyX.style.animation = 'penaltyShake 0.6s ease forwards';
+                
+                setTimeout(function() {
+                    penaltyX.classList.add('hidden');
+                }, 600);
+                
+                duckCount--;
+                updatePond();
+                updateProgress();
+            }
+        }
+        
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden && audioCtx) audioCtx.resume();
+        });
+        document.addEventListener('touchstart', initAudio, { once: true });
+        document.addEventListener('click', initAudio, { once: true });
+
+        // Steps
+        var steps = [
+            { icon: '🪥', title: 'Brush Teeth', subtitle: 'Nice and clean' },
+            { icon: '🌙', title: 'Goodnight', subtitle: 'Say goodnight to everyone' },
+            { icon: '📚', title: 'Book Time', subtitle: 'Read a story' },
+            { icon: '🔥<img src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'%3E%3Crect width=\'100\' height=\'100\' rx=\'22\' fill=\'%23000000\'/%3E%3Ccircle cx=\'50\' cy=\'50\' r=\'30\' fill=\'%231DB954\'/%3E%3Cpath d=\'M33 55 Q50 52 67 58\' stroke=\'%23000000\' stroke-width=\'5\' stroke-linecap=\'round\' fill=\'none\'/%3E%3Cpath d=\'M30 47 Q50 43 70 51\' stroke=\'%23000000\' stroke-width=\'5\' stroke-linecap=\'round\' fill=\'none\'/%3E%3Cpath d=\'M27 39 Q50 34 73 43\' stroke=\'%23000000\' stroke-width=\'5\' stroke-linecap=\'round\' fill=\'none\'/%3E%3C/svg%3E" style="width:55px;height:55px;vertical-align:middle;margin-left:10px;border-radius:12px;">', title: 'Dance Time', subtitle: 'The House Fire dance' },
+            { icon: '🛏️', title: 'Into Bed', subtitle: 'Climb in and get cozy' },
+            { icon: '🛏️', title: 'Blanket Time', subtitle: 'On your back and foot' },
+            { icon: '😘', title: 'Final Kisses', subtitle: 'Goodnight kisses' }
+        ];
+        
+        var currentStep = 0;
+        var duckCount = 0;
+        var isTransitioning = false;
+
+        function updatePond() {
+            var pond = document.getElementById('pondDucks');
+            if (duckCount === 0) {
+                pond.innerHTML = '<span class="pond-empty">Ducks will gather here...</span>';
+            } else {
+                var html = '';
+                for (var i = 0; i < duckCount; i++) {
+                    var delay = i * 0.1;
+                    html += '<span class="pond-duck" style="animation-delay: ' + delay + 's">🦆</span>';
+                }
+                pond.innerHTML = html;
+            }
+        }
+
+        function showDuckAdd() {
+            // Show 4 ducks floating up gently
+            var positions = [
+                { x: 35, y: 45 },
+                { x: 65, y: 45 },
+                { x: 45, y: 55 },
+                { x: 55, y: 55 }
+            ];
+            positions.forEach(function(pos, i) {
+                setTimeout(function() {
+                    var duck = document.createElement('div');
+                    duck.className = 'duck-add';
+                    duck.style.left = pos.x + '%';
+                    duck.style.top = pos.y + '%';
+                    duck.textContent = '🦆';
+                    document.body.appendChild(duck);
+                    setTimeout(function() {
+                        if (duck.parentNode) duck.parentNode.removeChild(duck);
+                    }, 1200);
+                }, i * 150);
+            });
+        }
+
+        function updateProgress() {
+            document.getElementById('progress').textContent = 'Step ' + (currentStep + 1) + ' of ' + steps.length + ' · ' + duckCount + ' ducks';
+        }
+
+        function updateBackButton() {
+            var btn = document.getElementById('backBtn');
+            if (currentStep > 0 && currentStep < steps.length && !isTransitioning) {
+                btn.classList.remove('hidden');
+            } else {
+                btn.classList.add('hidden');
+            }
+        }
+
+        function render() {
+            var step = steps[currentStep];
+            var card = document.getElementById('stepCard');
+            updateProgress();
+            updateBackButton();
+            card.innerHTML = 
+                '<div class="step-icon">' + step.icon + '</div>' +
+                '<div class="step-title">' + step.title + '</div>' +
+                '<div class="step-subtitle">' + step.subtitle + '</div>' +
+                '<button class="btn btn-done" onclick="completeStep()">Done +4🦆</button>';
+        }
+
+        function completeStep() {
+            if (isTransitioning) return;
+            isTransitioning = true;
+            
+            initAudio();
+            playRewardChime();
+            showDuckAdd();
+            duckCount += 4;
+            
+            document.getElementById('backBtn').classList.add('hidden');
+            
+            setTimeout(function() {
+                updatePond();
+            }, 800);
+            
+            currentStep++;
+            
+            setTimeout(function() {
+                isTransitioning = false;
+                if (currentStep >= steps.length) {
+                    showCelebration();
+                } else {
+                    render();
+                }
+            }, 1500);
+        }
+
+        function goBack() {
+            if (currentStep > 0 && !isTransitioning) {
+                currentStep--;
+                duckCount = Math.max(0, duckCount - 4);
+                updatePond();
+                render();
+            }
+        }
+
+        function showCelebration() {
+            document.getElementById('progress').textContent = 'All done! ' + duckCount + ' ducks!';
+            document.getElementById('backBtn').classList.add('hidden');
+            
+            playCelebrationSound();
+            
+            // Gentle stars floating up
+            for (var i = 0; i < 12; i++) {
+                (function(i) {
+                    setTimeout(function() {
+                        var star = document.createElement('div');
+                        star.className = 'gentle-star';
+                        star.style.left = (15 + Math.random() * 70) + '%';
+                        star.style.animationDelay = (Math.random() * 0.5) + 's';
+                        star.textContent = '✨';
+                        document.body.appendChild(star);
+                        setTimeout(function() {
+                            if (star.parentNode) star.parentNode.removeChild(star);
+                        }, 3000);
+                    }, i * 100);
+                })(i);
+            }
+            
+            document.getElementById('stepCard').innerHTML = 
+                '<div class="celebration">' +
+                    '<div class="celebration-duck">🦆</div>' +
+                    '<div class="celebration-title">Sweet Dreams, Vera</div>' +
+                    '<div class="celebration-sub">' + duckCount + ' ducks are swimming in the pond</div>' +
+                '</div>';
+        }
+
+        function startRoutine() {
+            initAudio();
+            playGentleTone();
+            currentStep = 0;
+            duckCount = 0;
+            updatePond();
+            document.getElementById('coverPage').classList.add('hidden');
+            document.getElementById('routinePage').classList.remove('hidden');
+            document.getElementById('removeBtn').classList.remove('hidden');
+            render();
+        }
+
+        function resetRoutine() {
+            currentStep = 0;
+            duckCount = 0;
+            isTransitioning = false;
+            document.getElementById('routinePage').classList.add('hidden');
+            document.getElementById('coverPage').classList.remove('hidden');
+            document.getElementById('removeBtn').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
