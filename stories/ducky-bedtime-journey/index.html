@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vera's Ducky Bedtime Journey</title>
+    <style>
+        @page {
+            size: letter portrait;
+            margin: 0.3in;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Comic Sans MS', 'Chalkboard', cursive;
+            background: white;
+            color: black;
+            width: 8.5in;
+            height: 11in;
+            margin: 0 auto;
+            padding: 0.2in;
+            position: relative;
+        }
+        .title {
+            text-align: center;
+            font-size: 26px;
+            font-weight: bold;
+            margin-bottom: 3px;
+        }
+        .subtitle {
+            text-align: center;
+            font-size: 11px;
+            margin-bottom: 8px;
+            font-style: italic;
+        }
+        .board {
+            position: relative;
+            width: 100%;
+            height: calc(100% - 55px);
+        }
+        /* The winding path */
+        .path-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .path-line {
+            fill: none;
+            stroke: #333;
+            stroke-width: 8;
+            stroke-linecap: round;
+        }
+        .path-line-inner {
+            fill: none;
+            stroke: white;
+            stroke-width: 4;
+            stroke-dasharray: 12, 12;
+        }
+        /* Step stops along the path */
+        .stop {
+            position: absolute;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .stop-circle {
+            width: 60px;
+            height: 60px;
+            border: 4px solid black;
+            border-radius: 50%;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+        }
+        .stop-label {
+            background: white;
+            border: 2px solid black;
+            border-radius: 8px;
+            padding: 3px 8px;
+            margin-top: 4px;
+            text-align: center;
+            max-width: 100px;
+        }
+        .stop-num {
+            font-size: 9px;
+            font-weight: bold;
+            color: #555;
+        }
+        .stop-title {
+            font-size: 11px;
+            font-weight: bold;
+            line-height: 1.1;
+        }
+        .checkbox {
+            width: 22px;
+            height: 22px;
+            border: 3px solid black;
+            border-radius: 4px;
+            background: white;
+            margin-top: 3px;
+        }
+        /* Ducks collecting along the path */
+        .ducks-group {
+            position: absolute;
+            z-index: 5;
+            display: flex;
+            gap: 1px;
+        }
+        .duck {
+            font-size: 22px;
+        }
+        .duck-small {
+            font-size: 18px;
+        }
+        /* Start area */
+        .start {
+            position: absolute;
+            top: 5px;
+            left: 15px;
+            z-index: 10;
+        }
+        .start-duck {
+            font-size: 45px;
+        }
+        .start-bubble {
+            position: absolute;
+            top: -5px;
+            left: 55px;
+            background: white;
+            border: 2px solid black;
+            border-radius: 12px;
+            padding: 4px 8px;
+            font-size: 10px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        /* Pond at the end */
+        .pond {
+            position: absolute;
+            bottom: 5px;
+            right: 10px;
+            width: 200px;
+            height: 130px;
+            border: 4px solid black;
+            border-radius: 50%;
+            background: white;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+        .pond-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .pond-ducks {
+            font-size: 26px;
+            line-height: 1.2;
+            text-align: center;
+        }
+        .pond-msg {
+            font-size: 11px;
+            font-style: italic;
+            margin-top: 5px;
+        }
+        /* Excitement stars */
+        .stars {
+            position: absolute;
+            font-size: 10px;
+            color: #555;
+            z-index: 8;
+        }
+    </style>
+</head>
+<body>
+    <div class="title">🦆 Vera's Ducky Bedtime Journey 🦆</div>
+    <div class="subtitle">Help Ducky collect friends on the way to the pond!</div>
+    
+    <div class="board">
+        <!-- Winding Path SVG -->
+        <svg class="path-svg" viewBox="0 0 750 900" preserveAspectRatio="xMidYMid meet">
+            <!-- Main path outline -->
+            <path class="path-line" d="
+                M 100,70
+                C 200,70 280,100 320,140
+                L 450,180
+                C 520,200 560,240 560,280
+                L 540,340
+                C 520,400 440,420 380,420
+                L 280,400
+                C 200,390 140,420 140,480
+                L 160,540
+                C 180,600 260,620 340,620
+                L 480,640
+                C 560,660 600,720 580,780
+                L 540,830
+            "/>
+            <!-- Dotted inner line -->
+            <path class="path-line-inner" d="
+                M 100,70
+                C 200,70 280,100 320,140
+                L 450,180
+                C 520,200 560,240 560,280
+                L 540,340
+                C 520,400 440,420 380,420
+                L 280,400
+                C 200,390 140,420 140,480
+                L 160,540
+                C 180,600 260,620 340,620
+                L 480,640
+                C 560,660 600,720 580,780
+                L 540,830
+            "/>
+        </svg>
+
+        <!-- START -->
+        <div class="start">
+            <div class="start-duck">🦆</div>
+            <div class="start-bubble">Let's go!</div>
+        </div>
+
+        <!-- STOP 1: Brush Teeth -->
+        <div class="stop" style="top: 35px; left: 200px;">
+            <div class="stop-circle">🪥</div>
+            <div class="stop-label">
+                <div class="stop-num">STEP 1</div>
+                <div class="stop-title">Brush Teeth</div>
+            </div>
+            <div class="checkbox"></div>
+        </div>
+        <div class="ducks-group" style="top: 110px; left: 310px;">
+            <span class="duck">🦆</span>
+        </div>
+        <div class="stars" style="top: 95px; left: 340px;">✦</div>
+
+        <!-- STOP 2: Goodnight -->
+        <div class="stop" style="top: 130px; left: 420px;">
+            <div class="stop-circle">🌙</div>
+            <div class="stop-label">
+                <div class="stop-num">STEP 2</div>
+                <div class="stop-title">Goodnight!</div>
+            </div>
+            <div class="checkbox"></div>
+        </div>
+        <div class="ducks-group" style="top: 230px; left: 520px;">
+            <span class="duck">🦆</span>
+            <span class="duck">🦆</span>
+        </div>
+        <div class="stars" style="top: 215px; left: 565px;">✦✦</div>
+
+        <!-- STOP 3: Book Time -->
+        <div class="stop" style="top: 280px; left: 460px;">
+            <div class="stop-circle">📚</div>
+            <div class="stop-label">
+                <div class="stop-num">STEP 3</div>
+                <div class="stop-title">Book Time</div>
+            </div>
+            <div class="checkbox"></div>
+        </div>
+        <div class="ducks-group" style="top: 360px; left: 390px;">
+            <span class="duck">🦆</span>
+            <span class="duck">🦆</span>
+            <span class="duck">🦆</span>
+        </div>
+        <div class="stars" style="top: 345px; left: 455px;">✦✦✦</div>
+
+        <!-- STOP 4: Dance Party -->
+        <div class="stop" style="top: 360px; left: 220px;">
+            <div class="stop-circle">🔥</div>
+            <div class="stop-label">
+                <div class="stop-num">STEP 4</div>
+                <div class="stop-title">Dance Party!</div>
+            </div>
+            <div class="checkbox"></div>
+        </div>
+        <div class="ducks-group" style="top: 455px; left: 100px;">
+            <span class="duck duck-small">🦆</span>
+            <span class="duck duck-small">🦆</span>
+            <span class="duck duck-small">🦆</span>
+            <span class="duck duck-small">🦆</span>
+        </div>
+        <div class="stars" style="top: 438px; left: 175px;">✦✦✦✦</div>
+
+        <!-- STOP 5: Into Bed -->
+        <div class="stop" style="top: 470px; left: 95px;">
+            <div class="stop-circle">🛏️</div>
+            <div class="stop-label">
+                <div class="stop-num">STEP 5</div>
+                <div class="stop-title">Into Bed!</div>
+            </div>
+            <div class="checkbox"></div>
+        </div>
+        <div class="ducks-group" style="top: 560px; left: 180px;">
+            <span class="duck duck-small">🦆</span>
+            <span class="duck duck-small">🦆</span>
+            <span class="duck duck-small">🦆</span>
+            <span class="duck duck-small">🦆</span>
+            <span class="duck duck-small">🦆</span>
+        </div>
+        <div class="stars" style="top: 545px; left: 270px;">✦✦✦✦✦</div>
+
+        <!-- STOP 6: Blanket Time -->
+        <div class="stop" style="top: 560px; left: 280px;">
+            <div class="stop-circle">🛏️</div>
+            <div class="stop-label">
+                <div class="stop-num">STEP 6</div>
+                <div class="stop-title">Blanket Time</div>
+            </div>
+            <div class="checkbox"></div>
+        </div>
+        <div class="ducks-group" style="top: 650px; left: 410px;">
+            <span class="duck duck-small">🦆</span>
+            <span class="duck duck-small">🦆</span>
+            <span class="duck duck-small">🦆</span>
+            <span class="duck duck-small">🦆</span>
+            <span class="duck duck-small">🦆</span>
+            <span class="duck duck-small">🦆</span>
+        </div>
+        <div class="stars" style="top: 635px; left: 515px;">✦✦✦✦✦✦</div>
+
+        <!-- STOP 7: Final Kisses -->
+        <div class="stop" style="top: 655px; left: 450px;">
+            <div class="stop-circle">😘</div>
+            <div class="stop-label">
+                <div class="stop-num">STEP 7</div>
+                <div class="stop-title">Final Kisses!</div>
+            </div>
+            <div class="checkbox"></div>
+        </div>
+        <div class="ducks-group" style="top: 755px; left: 400px;">
+            <span class="duck duck-small">🦆</span>
+            <span class="duck duck-small">🦆</span>
+            <span class="duck duck-small">🦆</span>
+            <span class="duck duck-small">🦆</span>
+            <span class="duck duck-small">🦆</span>
+            <span class="duck duck-small">🦆</span>
+            <span class="duck duck-small">🦆</span>
+        </div>
+        <div class="stars" style="top: 738px; left: 530px; font-size: 12px;">✦✦✦✦✦✦✦</div>
+
+        <!-- THE POND -->
+        <div class="pond">
+            <div class="pond-title">🎉 DUCKY POND! 🎉</div>
+            <div class="pond-ducks">🦆🦆🦆🦆<br>🦆🦆🦆</div>
+            <div class="pond-msg">Sweet Dreams, Vera! 🌙</div>
+        </div>
+    </div>
+</body>
+</html>

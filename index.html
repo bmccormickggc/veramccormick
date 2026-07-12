@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Vera's Library</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header" aria-label="Vera's Library">
+    <a class="brand" href="#top" aria-label="Vera's Library home">
+      <span class="brand-mark" aria-hidden="true">V</span>
+      <span class="brand-text">Vera's Library</span>
+    </a>
+    <nav class="top-nav" aria-label="Sections">
+      <a href="#stories">Stories</a>
+      <a href="#tools">Tools</a>
+      <a href="#games">Games</a>
+      <a href="#learning">Learning</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-label="Library overview">
+      <div class="hero-copy">
+        <p class="eyebrow">Stories, tools, games, and learning projects</p>
+        <h1>Vera's Library</h1>
+        <p class="summary">A permanent home for the little things we make together.</p>
+      </div>
+    </section>
+
+    <section class="dashboard" aria-label="Library dashboard">
+      <div class="section-heading">
+        <h2>Open Something</h2>
+        <div class="filter-controls" aria-label="Filter library">
+          <button class="filter-button is-active" type="button" data-filter="all">All</button>
+          <button class="filter-button" type="button" data-filter="stories">Stories</button>
+          <button class="filter-button" type="button" data-filter="tools">Tools</button>
+          <button class="filter-button" type="button" data-filter="games">Games</button>
+          <button class="filter-button" type="button" data-filter="learning">Learning</button>
+        </div>
+      </div>
+      <div id="library-grid" class="library-grid" aria-live="polite"></div>
+    </section>
+
+    <section class="module-band" id="stories" aria-label="Stories">
+      <div class="module-inner">
+        <h2>Stories</h2>
+        <div class="module-list" data-section-list="stories"></div>
+      </div>
+    </section>
+
+    <section class="module-band" id="tools" aria-label="Tools">
+      <div class="module-inner">
+        <h2>Tools</h2>
+        <div class="module-list" data-section-list="tools"></div>
+      </div>
+    </section>
+
+    <section class="module-band" id="games" aria-label="Games">
+      <div class="module-inner">
+        <h2>Games</h2>
+        <div class="module-list" data-section-list="games"></div>
+      </div>
+    </section>
+
+    <section class="module-band" id="learning" aria-label="Learning">
+      <div class="module-inner">
+        <h2>Learning</h2>
+        <div class="module-list" data-section-list="learning"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span>VeraMcCormick.com</span>
+    <span>Built as a family project library.</span>
+  </footer>
+
+  <script src="content.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
