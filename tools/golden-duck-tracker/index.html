@@ -551,7 +551,28 @@
       }
     }
     @media (max-width: 680px) {
+      html,
+      body {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+      }
       .app { padding: 8px; }
+      .app,
+      .topbar,
+      .summary-band,
+      .layout,
+      .matrix,
+      #goalRows,
+      .goal-row,
+      .goal-cell,
+      .side-panel,
+      .calendar-panel,
+      .editor-panel {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+      }
       .topbar {
         display: grid;
         grid-template-columns: 38px minmax(0, 1fr) 38px;
@@ -649,7 +670,7 @@
         background: transparent;
         border: 0;
         box-shadow: none;
-        overflow: visible;
+        overflow: hidden;
       }
       .matrix-head { display: none; }
       .goal-row {
@@ -662,6 +683,7 @@
         padding: 12px;
         margin-bottom: 10px;
         box-shadow: 0 8px 20px rgba(39, 50, 58, 0.06);
+        overflow: hidden;
       }
       .goal-cell {
         padding: 0;
@@ -669,6 +691,9 @@
       }
       .action-cell {
         min-height: 0;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
       }
       .action-cell + .action-cell {
         padding-top: 9px;
@@ -676,7 +701,14 @@
       }
       .add-btn,
       .x-btn {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
         min-height: 48px;
+      }
+      .behavior-label {
+        min-width: 0;
+        overflow-wrap: anywhere;
       }
       .add-btn {
         margin-bottom: 4px;
