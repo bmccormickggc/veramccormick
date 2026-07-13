@@ -76,7 +76,7 @@
     }
     .summary-band {
       display: grid;
-      grid-template-columns: 1fr auto 1fr;
+      grid-template-columns: 1fr auto 1fr 1fr;
       gap: 12px;
       align-items: stretch;
       margin-bottom: 14px;
@@ -103,11 +103,25 @@
       font-weight: 900;
       color: #18566f;
     }
+    .score-value.is-negative {
+      color: #c62525;
+    }
     .score-detail {
       margin-top: 3px;
       color: #6b8289;
       font-size: 13px;
       font-weight: 800;
+    }
+    .math-formula {
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: #fff8df;
+      color: #624400;
+      font-size: 14px;
+      font-weight: 900;
+      line-height: 1.25;
+      border: 1px solid rgba(196, 138, 22, 0.18);
     }
     .date-card {
       min-width: min(390px, 100%);
@@ -615,6 +629,12 @@
         <div class="score-value"><span id="xTotal">0</span><span class="x-mark">X</span></div>
         <div class="score-detail" id="weekXTotal">0 this week</div>
       </div>
+      <div class="score-panel">
+        <div class="score-label">Net ducks today</div>
+        <div class="score-value" id="netTotalWrap"><span id="netTotal">0</span><span id="netDuckIcon"></span></div>
+        <div class="math-formula" id="netFormula">0 ducks - 0 red X = 0 net ducks</div>
+        <div class="score-detail" id="weekNetTotal">0 net this week</div>
+      </div>
     </section>
 
     <section class="layout">
@@ -754,8 +774,13 @@
         duckTotal: document.getElementById("duckTotal"),
         duckTotalIcon: document.getElementById("duckTotalIcon"),
         xTotal: document.getElementById("xTotal"),
+        netTotal: document.getElementById("netTotal"),
+        netTotalWrap: document.getElementById("netTotalWrap"),
+        netDuckIcon: document.getElementById("netDuckIcon"),
+        netFormula: document.getElementById("netFormula"),
         weekDuckTotal: document.getElementById("weekDuckTotal"),
         weekXTotal: document.getElementById("weekXTotal"),
+        weekNetTotal: document.getElementById("weekNetTotal"),
         monthTitle: document.getElementById("monthTitle"),
         calendarGrid: document.getElementById("calendarGrid"),
         toast: document.getElementById("toast"),
@@ -828,21 +853,24 @@
 
       function totalsForDate(date) {
         var day = state.days[dateKey(date)] || {};
-        return Object.keys(day).reduce(function (acc, id) {
+        var totals = Object.keys(day).reduce(function (acc, id) {
           acc.ducks += day[id].ducks || 0;
           acc.x += day[id].x || 0;
           return acc;
         }, { ducks: 0, x: 0 });
+        totals.net = totals.ducks - totals.x;
+        return totals;
       }
 
       function totalsForRange(start, days) {
-        var totals = { ducks: 0, x: 0 };
+        var totals = { ducks: 0, x: 0, net: 0 };
         for (var i = 0; i < days; i++) {
           var d = new Date(start);
           d.setDate(start.getDate() + i);
           var t = totalsForDate(d);
           totals.ducks += t.ducks;
           totals.x += t.x;
+          totals.net += t.net;
         }
         return totals;
       }
@@ -877,9 +905,14 @@
         els.dateSubtitle.textContent = isSameDay(selected, today) ? "Today" : selected.toLocaleDateString();
         els.duckTotal.textContent = totals.ducks;
         els.xTotal.textContent = totals.x;
+        els.netTotal.textContent = totals.net;
         els.duckTotalIcon.innerHTML = duckSvg();
+        els.netDuckIcon.innerHTML = duckSvg();
         els.weekDuckTotal.textContent = weekTotals.ducks + " this week";
         els.weekXTotal.textContent = weekTotals.x + " this week";
+        els.weekNetTotal.textContent = weekTotals.net + " net this week";
+        els.netFormula.textContent = totals.ducks + " golden ducks - " + totals.x + " red X = " + totals.net + " net ducks";
+        els.netTotalWrap.classList.toggle("is-negative", totals.net < 0);
         els.soundToggle.textContent = soundOn ? "S" : "M";
         els.soundToggle.setAttribute("aria-label", soundOn ? "Sound on" : "Sound muted");
       }
@@ -976,7 +1009,7 @@
           if (isSameDay(date, selected)) cell.classList.add("is-selected");
           if (isSameDay(date, today)) cell.classList.add("is-today");
           cell.innerHTML = '<span>' + date.getDate() + '</span><span class="day-stats">' +
-            totals.ducks + 'D ' + totals.x + 'X</span>';
+            totals.ducks + 'D ' + totals.x + 'X ' + totals.net + 'N</span>';
           cell.addEventListener("click", (function (d) {
             return function () {
               selected = startOfDay(d);
@@ -1073,13 +1106,15 @@
       }
 
       function exportData() {
-        var rows = [["date", "goal", "golden_ducks", "red_x"]];
+        var rows = [["date", "goal", "golden_ducks", "red_x", "net_ducks"]];
         var goalsById = {};
         allGoals().forEach(function (goal) { goalsById[goal.id] = goal.name; });
         Object.keys(state.days).sort().forEach(function (key) {
           Object.keys(state.days[key]).forEach(function (goalId) {
             var item = state.days[key][goalId];
-            rows.push([key, goalsById[goalId] || goalId, item.ducks || 0, item.x || 0]);
+            var ducks = item.ducks || 0;
+            var x = item.x || 0;
+            rows.push([key, goalsById[goalId] || goalId, ducks, x, ducks - x]);
           });
         });
         var csv = rows.map(function (row) {
