@@ -38,7 +38,7 @@ window.VERA_CONTENT = [
     title: "Vera's Bedtime Duck Counter",
     category: "tools",
     description: "An hourglass full of tiny golden ducks. Get in bed fast to keep the most ducks and beat the high score.",
-    href: "tools/bedtime-duck-counter/",
+    href: "tools/bedtime-duck-counter/?v=tick1",
     status: "ready"
   },
   {

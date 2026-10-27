@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="bedtime-build" content="tick-v1">
 <meta name="robots" content="noindex,nofollow">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#18566f">
@@ -18,6 +22,7 @@ button{font:inherit;border:0;cursor:pointer;-webkit-tap-highlight-color:transpar
 .home-link{color:#18566f;text-decoration:none;font-size:14px;font-weight:800;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.85)}
 h1{margin:0;font-size:clamp(22px,6vw,30px);color:#fff;text-align:center;flex:1;line-height:1.05;text-shadow:0 2px 8px rgba(0,0,0,.2)}
 .best{color:#5a3d00;background:#ffe777;font-weight:900;font-size:13px;border-radius:999px;padding:7px 11px;white-space:nowrap}
+.sound{width:36px;height:36px;border-radius:999px;background:rgba(255,255,255,.85);color:#18566f;font-weight:900;font-size:15px}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px}
 .stat{background:rgba(255,255,255,.88);border-radius:12px;padding:8px 12px;text-align:center;box-shadow:0 8px 20px rgba(0,0,0,.1)}
 .stat .l{font-size:11px;font-weight:900;text-transform:uppercase;color:#6b8289}
@@ -45,7 +50,7 @@ canvas{width:100%;max-width:360px;height:auto;aspect-ratio:3/4.4;display:block}
   <div class="topbar">
     <a class="home-link" href="../../#tools">Library</a>
     <h1>Bedtime Ducks</h1>
-    <span class="best" id="best">Best: &ndash;</span>
+    <span style="display:flex;gap:6px;align-items:center"><span class="best" id="best">Best: &ndash;</span><button class="sound" id="soundToggle" type="button" aria-label="Sound on">S</button></span>
   </div>
   <div class="stats">
     <div class="stat"><div class="l">Time</div><div class="v" id="time">0:00</div></div>
@@ -89,6 +94,19 @@ canvas{width:100%;max-width:360px;height:auto;aspect-ratio:3/4.4;display:block}
   var botSlots=slots(neckY+30,botY-16,1);
   topSlots=topSlots.slice(0,TOTAL); // remaining n = topSlots[0..n)
   TOTAL=topSlots.length;
+  // Sound: gentle Web Audio "tock" per falling duck + calm end chime (S/M toggle like the Golden Duck Tracker)
+  var SOUND_KEY="veraBedtimeDucks.sound", audioCtx=null, soundOn=localStorage.getItem(SOUND_KEY)!=="off";
+  function initAudio(){if(!soundOn)return;try{if(!audioCtx||audioCtx.state==="closed"){audioCtx=new(window.AudioContext||window.webkitAudioContext)()}if(audioCtx.state==="suspended")audioCtx.resume()}catch(e){}}
+  function ready(){return soundOn&&audioCtx&&audioCtx.state==="running"}
+  function tock(){if(!ready())return;var t=audioCtx.currentTime+0.01,f=620+Math.random()*140,o=audioCtx.createOscillator(),g=audioCtx.createGain(),lp=audioCtx.createBiquadFilter();
+    lp.type="lowpass";lp.frequency.setValueAtTime(1400,t);o.type="sine";o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f*0.6,t+0.09);
+    o.connect(lp);lp.connect(g);g.connect(audioCtx.destination);g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.06,t+0.006);g.gain.exponentialRampToValueAtTime(0.0001,t+0.14);o.start(t);o.stop(t+0.18)}
+  function softNote(f,start,d,v){var t=audioCtx.currentTime+start,o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type="sine";o.frequency.setValueAtTime(f,t);o.connect(g);g.connect(audioCtx.destination);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v,t+0.05);g.gain.exponentialRampToValueAtTime(0.0001,t+d);o.start(t);o.stop(t+d+0.05)}
+  function endChime(good){if(!ready())return;(good?[[784,0],[659,.35],[523,.7],[392,1.05]]:[[523,0],[392,.45]]).forEach(function(n){softNote(n[0],n[1],1.4,0.07)})}
+  function renderSound(){var b=$("soundToggle");b.textContent=soundOn?"S":"M";b.setAttribute("aria-label",soundOn?"Sound on":"Sound muted")}
+  $("soundToggle").onclick=function(){soundOn=!soundOn;localStorage.setItem(SOUND_KEY,soundOn?"on":"off");if(soundOn){initAudio();setTimeout(tock,60)}renderSound()};
+  document.addEventListener("pointerdown",initAudio);
   var st=load(); function load(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return{}}}
   function save(){localStorage.setItem(KEY,JSON.stringify(st))}
   st.best = typeof st.best==="number"?st.best:null;
@@ -101,7 +119,7 @@ canvas{width:100%;max-width:360px;height:auto;aspect-ratio:3/4.4;display:block}
   function glassPath(){ctx.beginPath();ctx.moveTo(cx,neckY);for(var y=neckY;y>=topY;y-=4)ctx.lineTo(cx-halfWidthAt(y)-8,y);for(y=topY;y<=neckY;y+=4)ctx.lineTo(cx+halfWidthAt(y)+8,y);for(y=neckY;y<=botY;y+=4)ctx.lineTo(cx+halfWidthAt(y)+8,y);for(y=botY;y>=neckY;y-=4)ctx.lineTo(cx-halfWidthAt(y)-8,y);ctx.closePath()}
   function frame(){
     var ms=elapsed(), left=mode==="idle"?TOTAL:leftAt(ms);
-    if(mode==="run"&&left<lastLeft){for(var k=lastLeft-1;k>=left;k--){var s=topSlots[k];falling.push({x:s.x,y:s.y,vx:(cx-s.x)*.04,vy:0,r:s.r,f:s.f,phase:0,target:TOTAL-1-k})}}
+    if(mode==="run"&&left<lastLeft){tock();for(var k=lastLeft-1;k>=left;k--){var s=topSlots[k];falling.push({x:s.x,y:s.y,vx:(cx-s.x)*.04,vy:0,r:s.r,f:s.f,phase:0,target:TOTAL-1-k})}}
     lastLeft=left;
     ctx.clearRect(0,0,W,H);
     // glass
@@ -129,18 +147,18 @@ canvas{width:100%;max-width:360px;height:auto;aspect-ratio:3/4.4;display:block}
   async function lock(){try{if("wakeLock"in navigator){wake=await navigator.wakeLock.request("screen");$("wl").textContent="\u2600 Screen stays awake";wake.addEventListener("release",function(){if(mode!=="run")$("wl").textContent=""})}}catch(e){$("wl").textContent=""}}
   function unlock(){if(wake){wake.release().catch(function(){});wake=null}$("wl").textContent=""}
   document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"&&mode==="run")lock()});
-  function start(){mode="run";startAt=Date.now();lastLeft=TOTAL;falling=[];st.running=true;st.startAt=startAt;save();setButtons();lock();$("msg").textContent="Ducks are falling\u2026 hurry to bed!"}
+  function start(){initAudio();mode="run";startAt=Date.now();lastLeft=TOTAL;falling=[];st.running=true;st.startAt=startAt;save();setButtons();lock();$("msg").textContent="Ducks are falling\u2026 hurry to bed!"}
   function stars(){var e=["\u2B50","\uD83C\uDF1F","\u2728","\uD83E\uDD86"];for(var i=0;i<18;i++){var s=document.createElement("div");s.className="star";s.textContent=e[i%4];s.style.left=Math.random()*90+"vw";s.style.top=(60+Math.random()*30)+"vh";s.style.animationDelay=Math.random()*.6+"s";document.body.appendChild(s);setTimeout(s.remove.bind(s),2600)}}
   function finish(timeout){frozenMs=timeout?DURATION:Math.min(DURATION,Date.now()-startAt);mode="done";st.running=false;var score=leftAt(frozenMs);
     var nb=st.best===null||score>st.best; if(nb&&score>0)st.best=score; else if(st.best===null)st.best=score; save();showBest();setButtons();unlock();
     $("msg").textContent=timeout?"Time's up \u2014 all the ducks fell out. Score 0. Try again tomorrow!":(nb&&score>0?"NEW HIGH SCORE! "+score+" ducks! Good night \uD83C\uDF19":"Good night! You kept "+score+" ducks.");
-    if(!timeout&&score>0)stars(); if(navigator.vibrate)navigator.vibrate(60)}
+    if(!timeout&&score>0)stars();endChime(!timeout&&score>0); if(navigator.vibrate)navigator.vibrate(60)}
   $("start").onclick=start;
   $("stop").onclick=function(){finish(false)};
   $("again").onclick=function(){mode="idle";frozenMs=0;falling=[];lastLeft=TOTAL;setButtons();$("msg").textContent="Ready for bed? Tap Start!"};
   $("resetBest").onclick=function(){if(confirm("Reset the high score?")){st.best=null;save();showBest()}};
   if(mode==="run"){lastLeft=leftAt(elapsed());lock();$("msg").textContent="Ducks are falling\u2026 hurry to bed!"}
-  setButtons();showBest();requestAnimationFrame(frame);
+  renderSound();setButtons();showBest();requestAnimationFrame(frame);
 })();
 </script>
 </body>
