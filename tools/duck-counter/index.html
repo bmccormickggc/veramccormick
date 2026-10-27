@@ -47,7 +47,8 @@ h1{margin:0;font-size:clamp(24px,5vw,40px);color:#18566f;line-height:1}
 .prizes{display:flex;flex-wrap:wrap;gap:10px;min-height:84px;align-items:center}
 .prize{width:clamp(70px,13vw,96px);text-align:center;font-size:12px;font-weight:900;color:#7a5a00}
 .prize svg{width:100%;height:auto;display:block}
-.prize.pop{animation:pop .5s ease}
+.prize.pop{animation:pikaBounce 1.4s ease}
+@keyframes pikaBounce{0%{transform:scale(.3);filter:drop-shadow(0 0 0 #ffe777)}25%{transform:scale(1.35) translateY(-14px);filter:drop-shadow(0 0 18px #ffd93b)}45%{transform:scale(.95)}60%{transform:scale(1.15) translateY(-6px)}80%{transform:scale(1);filter:drop-shadow(0 0 12px #ffd93b)}100%{transform:scale(1);filter:none}}
 .footer{display:flex;justify-content:space-between;align-items:center;gap:10px;color:#6b8289;font-weight:800;font-size:13px}
 .reset{background:#f0f6f8;color:#47626e;padding:8px 12px;border-radius:999px;font-weight:800;font-size:13px}
 .confetti{position:fixed;top:-12px;width:10px;height:14px;border-radius:3px;pointer-events:none;z-index:50;animation:fall 1.6s linear forwards}
@@ -104,6 +105,12 @@ h1{margin:0;font-size:clamp(24px,5vw,40px);color:#18566f;line-height:1}
   function playDuckReward(){if(!soundOn)return;initAudio();[523,659,784,1047].forEach(function(freq,i){tone(freq,i*0.09,0.32,"sine",0.14)});setTimeout(function(){[659,784,988].forEach(function(freq,i){tone(freq,i*0.055,0.2,"triangle",0.08)})},450)}
   function playBuzzer(){if(!soundOn)return;initAudio();tone(104,0,0.34,"square",0.2);tone(117,0,0.34,"sawtooth",0.14)}
   function playTap(){if(!soundOn)return;initAudio();tone(440,0,0.12,"sine",0.08)}
+  function playPikachuFanfare(){if(!soundOn)return;initAudio();
+    [392,523,659,784,1047].forEach(function(f,i){tone(f,i*0.085,0.22,"triangle",0.12)});
+    [523,659,784,1047].forEach(function(f){tone(f,0.45,1.15,"sine",0.07)});
+    tone(262,0.45,1.15,"triangle",0.06);
+    for(var i=0;i<10;i++){tone(i%2?1760:1568,0.62+i*0.07,0.09,"sine",0.04)}
+    tone(2093,1.35,0.3,"sine",0.04)}
   function renderSound(){var b=$("soundToggle");b.textContent=soundOn?"S":"M";b.setAttribute("aria-label",soundOn?"Sound on":"Sound muted")}
   $("soundToggle").onclick=function(){soundOn=!soundOn;localStorage.setItem(SOUND_KEY,soundOn?"on":"off");if(soundOn){initAudio();playTap()}renderSound()};
   function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
@@ -134,13 +141,13 @@ h1{margin:0;font-size:clamp(24px,5vw,40px);color:#18566f;line-height:1}
     var ph="";for(var p=0;p<pikas;p++)ph+='<div class="prize'+(lastPika!==null&&p>=lastPika?" pop":"")+'">'+PIKA+'Pikachu</div>';
     if(!pikas)ph='<span class="hint">No Pikachu yet today.</span>';
     $("prizes").innerHTML=ph;
-    if(lastPika!==null&&pikas>lastPika){confetti();setTimeout(playDuckReward,800)}
+    if(lastPika!==null&&pikas>lastPika){confetti(120)}
     lastPika=pikas;
     $("undo").disabled=!state.log.length;
   }
-  function confetti(){var cols=["#f6c431","#ef4b3c","#1b7893","#7cc576","#ffd93b"];for(var i=0;i<40;i++){var e=document.createElement("div");e.className="confetti";e.style.left=Math.random()*100+"vw";e.style.background=cols[i%cols.length];e.style.animationDelay=Math.random()*.5+"s";document.body.appendChild(e);setTimeout(e.remove.bind(e),2300)}}
+  function confetti(n){n=n||40;var cols=["#f6c431","#ef4b3c","#1b7893","#7cc576","#ffd93b"];for(var i=0;i<n;i++){var e=document.createElement("div");e.className="confetti";e.style.left=Math.random()*100+"vw";e.style.background=cols[i%cols.length];e.style.animationDelay=Math.random()*.5+"s";document.body.appendChild(e);setTimeout(e.remove.bind(e),2300)}}
   function rollover(){if(state.date!==today()){state={date:today(),log:[]};save();lastPika=0;render()}}
-  function add(v){initAudio();rollover();if(v===1)playDuckReward();else playBuzzer();state.log.push(v);save();render(true);if(navigator.vibrate)navigator.vibrate(25)}
+  function add(v){initAudio();rollover();var c0=counts().net;if(v===1){if(c0+1>0&&(c0+1)%5===0)playPikachuFanfare();else playDuckReward()}else playBuzzer();state.log.push(v);save();render(true);if(navigator.vibrate)navigator.vibrate(25)}
   $("addDuck").onclick=function(){add(1)};
   $("addX").onclick=function(){add(-1)};
   $("undo").onclick=function(){initAudio();rollover();if(state.log.length)playTap();state.log.pop();save();render()};
