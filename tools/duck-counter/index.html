@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="duck-counter-build" content="fanfare-v2">
 <meta name="robots" content="noindex,nofollow">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Vera's Simple Duck Counter</title>
@@ -105,12 +109,24 @@ h1{margin:0;font-size:clamp(24px,5vw,40px);color:#18566f;line-height:1}
   function playDuckReward(){if(!soundOn)return;initAudio();[523,659,784,1047].forEach(function(freq,i){tone(freq,i*0.09,0.32,"sine",0.14)});setTimeout(function(){[659,784,988].forEach(function(freq,i){tone(freq,i*0.055,0.2,"triangle",0.08)})},450)}
   function playBuzzer(){if(!soundOn)return;initAudio();tone(104,0,0.34,"square",0.2);tone(117,0,0.34,"sawtooth",0.14)}
   function playTap(){if(!soundOn)return;initAudio();tone(440,0,0.12,"sine",0.08)}
-  function playPikachuFanfare(){if(!soundOn)return;initAudio();
-    [392,523,659,784,1047].forEach(function(f,i){tone(f,i*0.085,0.22,"triangle",0.12)});
-    [523,659,784,1047].forEach(function(f){tone(f,0.45,1.15,"sine",0.07)});
-    tone(262,0.45,1.15,"triangle",0.06);
-    for(var i=0;i<10;i++){tone(i%2?1760:1568,0.62+i*0.07,0.09,"sine",0.04)}
-    tone(2093,1.35,0.3,"sine",0.04)}
+  // Pikachu fanfare v2: brass-like "ta-da-da-DAAA" level-up jingle + sparkle, ~2.5 s, through a lowpass
+  function whenReady(fn){if(!soundOn)return;initAudio();if(!audioCtx)return;if(audioCtx.state==="running"){fn()}else{audioCtx.resume().then(fn,fn)}}
+  function brass(out,f,t,d,v){var o1=audioCtx.createOscillator(),o2=audioCtx.createOscillator(),g=audioCtx.createGain();o1.type="sawtooth";o2.type="square";
+    o1.frequency.setValueAtTime(f,t);o2.frequency.setValueAtTime(f*1.003,t);o1.connect(g);o2.connect(g);g.connect(out);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v,t+0.03);g.gain.setValueAtTime(v,t+Math.max(0.04,d-0.08));g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+    o1.start(t);o2.start(t);o1.stop(t+d+0.05);o2.stop(t+d+0.05)}
+  function bell(out,f,t,d,v){var o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type="sine";o.frequency.setValueAtTime(f,t);o.connect(g);g.connect(out);
+    g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+d);o.start(t);o.stop(t+d+0.05)}
+  function playPikachuFanfare(){whenReady(function(){
+    var now=audioCtx.currentTime+0.03, lp=audioCtx.createBiquadFilter(), m=audioCtx.createGain();
+    lp.type="lowpass";lp.frequency.setValueAtTime(2600,now);lp.Q.value=0.7;m.gain.value=1;lp.connect(m);m.connect(audioCtx.destination);
+    // ta-ta-ta  ta-da  DAAAA  (G4 G4 G4  E5 G5  C6 chord)
+    [[392,0,.13],[392,.15,.13],[392,.30,.13],[659,.47,.16],[784,.66,.18]].forEach(function(n){brass(lp,n[0],now+n[1],n[2],0.11)});
+    [523,659,784,1047].forEach(function(f){brass(lp,f,now+0.88,1.5,0.06)});
+    brass(lp,131,now+0.88,1.5,0.08);
+    for(var i=0;i<14;i++){bell(m,[2093,2637,3136,2637][i%4],now+0.95+i*0.085,0.25,0.07)}
+    bell(m,4186,now+2.15,0.4,0.06);
+  })}
   function renderSound(){var b=$("soundToggle");b.textContent=soundOn?"S":"M";b.setAttribute("aria-label",soundOn?"Sound on":"Sound muted")}
   $("soundToggle").onclick=function(){soundOn=!soundOn;localStorage.setItem(SOUND_KEY,soundOn?"on":"off");if(soundOn){initAudio();playTap()}renderSound()};
   function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
@@ -147,10 +163,11 @@ h1{margin:0;font-size:clamp(24px,5vw,40px);color:#18566f;line-height:1}
   }
   function confetti(n){n=n||40;var cols=["#f6c431","#ef4b3c","#1b7893","#7cc576","#ffd93b"];for(var i=0;i<n;i++){var e=document.createElement("div");e.className="confetti";e.style.left=Math.random()*100+"vw";e.style.background=cols[i%cols.length];e.style.animationDelay=Math.random()*.5+"s";document.body.appendChild(e);setTimeout(e.remove.bind(e),2300)}}
   function rollover(){if(state.date!==today()){state={date:today(),log:[]};save();lastPika=0;render()}}
-  function add(v){initAudio();rollover();var c0=counts().net;if(v===1){if(c0+1>0&&(c0+1)%5===0)playPikachuFanfare();else playDuckReward()}else playBuzzer();state.log.push(v);save();render(true);if(navigator.vibrate)navigator.vibrate(25)}
+  function pikaCount(){return Math.floor(Math.max(counts().net,0)/5)}
+  function add(v){initAudio();rollover();var p0=pikaCount();state.log.push(v);var p1=pikaCount();if(p1>p0)playPikachuFanfare();else if(v===1)playDuckReward();else playBuzzer();save();render(true);if(navigator.vibrate)navigator.vibrate(25)}
   $("addDuck").onclick=function(){add(1)};
   $("addX").onclick=function(){add(-1)};
-  $("undo").onclick=function(){initAudio();rollover();if(state.log.length)playTap();state.log.pop();save();render()};
+  $("undo").onclick=function(){initAudio();rollover();var p0=pikaCount(),had=state.log.length;state.log.pop();if(pikaCount()>p0)playPikachuFanfare();else if(had)playTap();save();render()};
   $("reset").onclick=function(){if(confirm("Reset today's ducks to zero?")){state.log=[];save();playTap();render()}};
   setInterval(rollover,30000);
   document.addEventListener("visibilitychange",rollover);
