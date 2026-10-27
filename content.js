@@ -28,6 +28,20 @@ window.VERA_CONTENT = [
     status: "ready"
   },
   {
+    title: "Vera's Simple Duck Counter",
+    category: "tools",
+    description: "Two big buttons for the day: golden ducks add up, red Xs cancel them, and every net 5 ducks earns a Pikachu.",
+    href: "tools/duck-counter/",
+    status: "ready"
+  },
+  {
+    title: "Vera's Bedtime Duck Counter",
+    category: "tools",
+    description: "An hourglass full of tiny golden ducks. Get in bed fast to keep the most ducks and beat the high score.",
+    href: "tools/bedtime-duck-counter/",
+    status: "ready"
+  },
+  {
     title: "Vera's Bedtime",
     category: "tools",
     description: "A calm seven-step bedtime routine app for moving toward sleep.",

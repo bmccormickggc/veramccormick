@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Vera's Simple Duck Counter</title>
+<style>
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{margin:0;font-family:ui-rounded,"Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif;color:#27323a;
+background:radial-gradient(circle at top left,rgba(255,236,153,.55),transparent 30rem),linear-gradient(180deg,#e8f8ff 0%,#f7fbef 48%,#fff6dc 100%);overflow-x:hidden}
+button{font:inherit;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.app{width:min(820px,100%);margin:0 auto;padding:16px 16px 28px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.home-link,.undo{color:#47626e;text-decoration:none;font-size:14px;font-weight:800;padding:9px 14px;border-radius:999px;background:rgba(255,255,255,.78);border:1px solid rgba(79,126,148,.18)}
+.undo:disabled{opacity:.4;cursor:default}
+.title-block{text-align:center;flex:1}
+h1{margin:0;font-size:clamp(24px,5vw,40px);color:#18566f;line-height:1}
+.subtitle{margin:5px 0 0;color:#5f7d86;font-size:14px;font-weight:800}
+.big-buttons{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.big{min-height:clamp(150px,26vw,230px);border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#fff;font-weight:900;font-size:clamp(20px,4vw,30px);box-shadow:0 14px 30px rgba(39,50,58,.16);transition:transform .08s}
+.big:active{transform:scale(.97)}
+.big .ico{width:clamp(70px,14vw,120px);height:clamp(70px,14vw,120px)}
+.big small{font-size:.6em;opacity:.9}
+.duck-btn{background:linear-gradient(180deg,#ffe777 0%,#f5b82e 100%);color:#5a3d00}
+.x-btn{background:linear-gradient(180deg,#ff7878 0%,#e13232 100%)}
+.panel{background:rgba(255,255,255,.85);border:1px solid rgba(79,126,148,.16);border-radius:12px;padding:16px;box-shadow:0 10px 24px rgba(39,50,58,.07);margin-bottom:16px}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px}
+.label{font-size:13px;font-weight:900;text-transform:uppercase;color:#6b8289}
+.net{font-size:clamp(34px,7vw,54px);font-weight:900;color:#18566f;line-height:1}
+.net.neg{color:#c62525}
+.formula{font-size:14px;font-weight:900;color:#624400;background:#fff8df;border:1px solid rgba(196,138,22,.18);border-radius:8px;padding:7px 10px;margin-bottom:12px}
+.grid{display:flex;flex-wrap:wrap;gap:8px;min-height:64px}
+.slot{position:relative;width:clamp(48px,9vw,64px);height:clamp(48px,9vw,64px);border-radius:12px;background:#f0f9fb;display:flex;align-items:center;justify-content:center}
+.slot.empty{background:#ffe8e8;border:2px dashed #e7a0a0}
+.slot svg.duck{width:86%;height:86%}
+.slot.cancel svg.duck{opacity:.45;filter:grayscale(.3)}
+.slot .xmark{position:absolute;inset:4%;width:92%;height:92%}
+.slot.pop{animation:pop .35s ease}
+@keyframes pop{0%{transform:scale(.4)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
+.hint{color:#6b8289;font-weight:800;font-size:14px}
+.progress{height:16px;border-radius:999px;background:#f0f6f8;overflow:hidden;margin:6px 0 12px;border:1px solid rgba(79,126,148,.14)}
+.progress>div{height:100%;background:linear-gradient(90deg,#ffe777,#f5b82e);transition:width .3s}
+.prizes{display:flex;flex-wrap:wrap;gap:10px;min-height:84px;align-items:center}
+.prize{width:clamp(70px,13vw,96px);text-align:center;font-size:12px;font-weight:900;color:#7a5a00}
+.prize svg{width:100%;height:auto;display:block}
+.prize.pop{animation:pop .5s ease}
+.footer{display:flex;justify-content:space-between;align-items:center;gap:10px;color:#6b8289;font-weight:800;font-size:13px}
+.reset{background:#f0f6f8;color:#47626e;padding:8px 12px;border-radius:999px;font-weight:800;font-size:13px}
+.confetti{position:fixed;top:-12px;width:10px;height:14px;border-radius:3px;pointer-events:none;z-index:50;animation:fall 1.6s linear forwards}
+@keyframes fall{to{transform:translateY(105vh) rotate(540deg)}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a class="home-link" href="../../#tools">Library</a>
+    <div class="title-block"><h1>Duck Counter</h1><p class="subtitle" id="today"></p></div>
+    <button class="undo" id="undo" type="button" disabled>&#8630; Undo</button>
+  </div>
+
+  <div class="big-buttons">
+    <button class="big duck-btn" id="addDuck" type="button" aria-label="Add a golden duck">
+      <svg class="ico" viewBox="0 0 64 64" id="duckTpl"><path d="M17 39c1.8-9.8 11.3-17 22-14.2 7.3 1.9 12.9 7.9 14.1 15.4.6 3.8-2.3 7.3-6.1 7.3H23.2c-4 0-7-3.8-6.2-8.5Z" fill="#f6c431" stroke="#c98712" stroke-width="1"/><path d="M12.3 35.2c-2.6-2.7-3.2-6.5-1.3-8.8 2.1-2.5 6.5-1.8 9.4 1.4l7.4 8.1-10.1 5-5.4-5.7Z" fill="#f0b62d"/><path d="M32.8 21.2c0-7.2 5.2-12.7 12.2-12.7 6.7 0 11.8 4.9 11.8 11.4 0 6.1-4.8 10.8-11.1 10.8h-8.5c-2.5 0-4.4-1.9-4.4-4.3v-5.2Z" fill="#ffd85a" stroke="#c98712" stroke-width="1"/><path d="M55.4 19.1h7.1c1.1 0 1.7 1.4.9 2.2l-5 4.9c-.8.8-2.2.5-2.7-.5l-2.1-4.4c-.5-1.1.3-2.2 1.8-2.2Z" fill="#f58528"/><circle cx="47.7" cy="17.7" r="2.3" fill="#25323a"/><path d="M25 43.6c5 3.1 15.3 3.2 22-.6" fill="none" stroke="#d99b12" stroke-width="2.8" stroke-linecap="round"/></svg>
+      Golden Duck<small>+1</small>
+    </button>
+    <button class="big x-btn" id="addX" type="button" aria-label="Add a red X">
+      <svg class="ico" viewBox="0 0 64 64"><circle cx="32" cy="32" r="29" fill="#fff" opacity=".25"/><path d="M18 18 46 46M46 18 18 46" stroke="#fff" stroke-width="10" stroke-linecap="round"/></svg>
+      Red X<small>&minus;1</small>
+    </button>
+  </div>
+
+  <section class="panel" aria-label="Net ducks">
+    <div class="panel-head"><span class="label">Today's net ducks</span><span class="net" id="net">0</span></div>
+    <div class="formula" id="formula"></div>
+    <div class="grid" id="grid"></div>
+    <p class="hint" id="gridHint"></p>
+  </section>
+
+  <section class="panel" aria-label="Pikachu prizes">
+    <div class="panel-head"><span class="label">Pikachu prizes</span><span class="net" id="pikaCount">0</span></div>
+    <div class="hint" id="toNext"></div>
+    <div class="progress"><div id="bar" style="width:0"></div></div>
+    <div class="prizes" id="prizes"></div>
+  </section>
+
+  <div class="footer"><span>Every net 5 golden ducks earns 1 Pikachu. Starts fresh each day.</span><button class="reset" id="reset" type="button">Reset today</button></div>
+</div>
+
+<template id="xTpl"><svg class="xmark" viewBox="0 0 64 64"><path d="M12 12 52 52M52 12 12 52" stroke="#fff" stroke-width="13" stroke-linecap="round"/><path d="M12 12 52 52M52 12 12 52" stroke="#e13232" stroke-width="8" stroke-linecap="round"/></svg></template>
+<script>
+(function(){
+  var KEY="vera-duck-counter-v1";
+  var $=function(id){return document.getElementById(id)};
+  var duckMarkup=$("duckTpl").innerHTML, xMarkup=$("xTpl").innerHTML;
+  var PIKA='<svg viewBox="0 0 100 100" aria-hidden="true"><path d="M74 62 88 50 80 46 92 30 70 44 78 48 66 58Z" fill="#f2c200" stroke="#8a5a00" stroke-width="2" stroke-linejoin="round"/><path d="M30 34 16 6 42 26Z" fill="#ffd93b" stroke="#8a5a00" stroke-width="2" stroke-linejoin="round"/><path d="M16 6 22 18 27 14Z" fill="#2b2b2b"/><path d="M62 26 84 4 72 36Z" fill="#ffd93b" stroke="#8a5a00" stroke-width="2" stroke-linejoin="round"/><path d="M84 4 75 14 79 19Z" fill="#2b2b2b"/><ellipse cx="48" cy="58" rx="30" ry="32" fill="#ffd93b" stroke="#8a5a00" stroke-width="2"/><circle cx="37" cy="48" r="4.5" fill="#2b2b2b"/><circle cx="59" cy="48" r="4.5" fill="#2b2b2b"/><circle cx="38.3" cy="46.6" r="1.5" fill="#fff"/><circle cx="60.3" cy="46.6" r="1.5" fill="#fff"/><circle cx="28" cy="60" r="6" fill="#ef4b3c"/><circle cx="68" cy="60" r="6" fill="#ef4b3c"/><path d="M43 59q5 5 10 0" fill="none" stroke="#2b2b2b" stroke-width="2.4" stroke-linecap="round"/><path d="M36 78q12 6 24 0" fill="none" stroke="#e0a800" stroke-width="2.5" stroke-linecap="round"/></svg>';
+  function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+  function load(){try{var s=JSON.parse(localStorage.getItem(KEY));if(s&&s.date===today()&&Array.isArray(s.log))return s}catch(e){}return{date:today(),log:[]}}
+  var state=load(), lastPika=null;
+  function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+  function counts(){var d=0,x=0;state.log.forEach(function(e){e===1?d++:x++});return{d:d,x:x,net:d-x}}
+  function render(pop){
+    var c=counts(), net=c.net, grid=$("grid"), html="";
+    $("today").textContent=new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"});
+    $("net").textContent=net; $("net").className="net"+(net<0?" neg":"");
+    $("formula").textContent=c.d+" golden duck"+(c.d===1?"":"s")+" \u2212 "+c.x+" red X"+(c.x===1?"":"s")+" = "+net+" net";
+    var covered=Math.min(c.d,c.x), slots=Math.max(c.d,c.x);
+    for(var i=0;i<slots;i++){
+      var cls="slot", inner="";
+      if(i<c.d){inner='<svg class="duck" viewBox="0 0 64 64">'+duckMarkup+'</svg>'; if(i<covered){cls+=" cancel";inner+=xMarkup}}
+      else{cls+=" empty";inner=xMarkup}
+      if(pop&&i===slots-1)cls+=" pop";
+      // newest mark: duck added -> last duck slot; X added -> slot covered index
+      html+='<div class="'+cls+'">'+inner+'</div>';
+    }
+    grid.innerHTML=html;
+    $("gridHint").textContent=slots===0?"Tap Golden Duck to start today's pond.":(net<0?"Uh oh \u2014 red Xs with no duck under them. Earn ducks to fill them in!":(c.x?"Each red X cancels one duck.":""));
+    var pikas=Math.floor(Math.max(net,0)/5), rem=Math.max(net,0)%5;
+    $("pikaCount").textContent=pikas;
+    $("bar").style.width=(rem/5*100)+"%";
+    $("toNext").textContent=net<0?"Get back to 0, then 5 net ducks earns a Pikachu.":(5-rem)+" more net duck"+(5-rem===1?"":"s")+" to the next Pikachu";
+    var ph="";for(var p=0;p<pikas;p++)ph+='<div class="prize'+(lastPika!==null&&p>=lastPika?" pop":"")+'">'+PIKA+'Pikachu</div>';
+    if(!pikas)ph='<span class="hint">No Pikachu yet today.</span>';
+    $("prizes").innerHTML=ph;
+    if(lastPika!==null&&pikas>lastPika)confetti();
+    lastPika=pikas;
+    $("undo").disabled=!state.log.length;
+  }
+  function confetti(){var cols=["#f6c431","#ef4b3c","#1b7893","#7cc576","#ffd93b"];for(var i=0;i<40;i++){var e=document.createElement("div");e.className="confetti";e.style.left=Math.random()*100+"vw";e.style.background=cols[i%cols.length];e.style.animationDelay=Math.random()*.5+"s";document.body.appendChild(e);setTimeout(e.remove.bind(e),2300)}}
+  function rollover(){if(state.date!==today()){state={date:today(),log:[]};save();lastPika=0;render()}}
+  function add(v){rollover();state.log.push(v);save();render(true);if(navigator.vibrate)navigator.vibrate(25)}
+  $("addDuck").onclick=function(){add(1)};
+  $("addX").onclick=function(){add(-1)};
+  $("undo").onclick=function(){rollover();state.log.pop();save();render()};
+  $("reset").onclick=function(){if(confirm("Reset today's ducks to zero?")){state.log=[];save();render()}};
+  setInterval(rollover,30000);
+  document.addEventListener("visibilitychange",rollover);
+  render();
+})();
+</script>
+</body>
+</html>

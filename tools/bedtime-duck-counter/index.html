@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="robots" content="noindex,nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#18566f">
+<title>Vera's Bedtime Duck Counter</title>
+<style>
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:ui-rounded,"Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif;color:#27323a;
+background:radial-gradient(circle at 80% 0%,rgba(255,236,153,.35),transparent 22rem),linear-gradient(180deg,#1d4f68 0%,#2c6a84 40%,#e8f8ff 100%);overflow-x:hidden}
+button{font:inherit;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.app{width:min(520px,100%);margin:0 auto;padding:max(12px,env(safe-area-inset-top)) 16px max(18px,env(safe-area-inset-bottom));min-height:100%;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.home-link{color:#18566f;text-decoration:none;font-size:14px;font-weight:800;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.85)}
+h1{margin:0;font-size:clamp(22px,6vw,30px);color:#fff;text-align:center;flex:1;line-height:1.05;text-shadow:0 2px 8px rgba(0,0,0,.2)}
+.best{color:#5a3d00;background:#ffe777;font-weight:900;font-size:13px;border-radius:999px;padding:7px 11px;white-space:nowrap}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px}
+.stat{background:rgba(255,255,255,.88);border-radius:12px;padding:8px 12px;text-align:center;box-shadow:0 8px 20px rgba(0,0,0,.1)}
+.stat .l{font-size:11px;font-weight:900;text-transform:uppercase;color:#6b8289}
+.stat .v{font-size:clamp(28px,9vw,40px);font-weight:900;color:#18566f;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat .v.duck{color:#c98712}
+.glass-wrap{flex:1;display:flex;align-items:center;justify-content:center;min-height:300px;position:relative}
+canvas{width:100%;max-width:360px;height:auto;aspect-ratio:3/4.4;display:block}
+.moon{position:absolute;top:4px;right:6px;font-size:30px;opacity:.9}
+.msg{text-align:center;color:#18566f;font-weight:900;font-size:18px;min-height:26px;margin:6px 0}
+.controls{display:grid;grid-template-columns:1fr;gap:10px}
+.btn{min-height:72px;border-radius:18px;font-size:26px;font-weight:900;color:#fff;box-shadow:0 12px 26px rgba(0,0,0,.18);transition:transform .08s}
+.btn:active{transform:scale(.97)}
+.start{background:linear-gradient(180deg,#ffe777,#f5b82e);color:#5a3d00}
+.stop{background:linear-gradient(180deg,#7cc4e0,#1b7893)}
+.again{background:linear-gradient(180deg,#9fd99a,#467f67)}
+.small-row{display:flex;justify-content:space-between;margin-top:10px}
+.link{background:transparent;color:#47626e;font-weight:800;font-size:13px;text-decoration:underline}
+.hidden{display:none}
+.star{position:fixed;font-size:24px;pointer-events:none;z-index:40;animation:rise 1.8s ease-out forwards}
+@keyframes rise{from{transform:translateY(0) scale(.6);opacity:1}to{transform:translateY(-60vh) scale(1.3);opacity:0}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <a class="home-link" href="../../#tools">Library</a>
+    <h1>Bedtime Ducks</h1>
+    <span class="best" id="best">Best: &ndash;</span>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="l">Time</div><div class="v" id="time">0:00</div></div>
+    <div class="stat"><div class="l">Ducks left</div><div class="v duck" id="left">0</div></div>
+  </div>
+  <div class="glass-wrap"><span class="moon" aria-hidden="true">&#127769;</span><canvas id="c" width="600" height="880" aria-label="Hourglass of golden ducks"></canvas></div>
+  <div class="msg" id="msg">Ready for bed? Tap Start!</div>
+  <div class="controls">
+    <button class="btn start" id="start" type="button">Start bedtime</button>
+    <button class="btn stop hidden" id="stop" type="button">I'm in bed! Stop</button>
+    <button class="btn again hidden" id="again" type="button">New round</button>
+  </div>
+  <div class="small-row"><span class="link" style="text-decoration:none" id="wl"></span><button class="link" id="resetBest" type="button">Reset high score</button></div>
+</div>
+<script>
+(function(){
+  var TOTAL=240, DURATION=600000, KEY="vera-bedtime-ducks-v1";
+  var cv=document.getElementById("c"), ctx=cv.getContext("2d"), W=cv.width, H=cv.height;
+  var $=function(i){return document.getElementById(i)};
+  // hourglass geometry
+  var cx=W/2, topY=40, neckY=H/2, botY=H-40, halfW=W/2-40, neck=14;
+  function halfWidthAt(y){ // width of bulb interior at y
+    var t = y<neckY ? (neckY-y)/(neckY-topY) : (y-neckY)/(botY-neckY);
+    t=Math.max(0,Math.min(1,t)); var s=Math.sin(Math.min(1,t*1.15)*Math.PI/2);
+    return neck+(halfW-neck)*s*(t>0.92?1-(t-0.92)*2.2:1);
+  }
+  // tiny duck sprite
+  var R=13, sp=document.createElement("canvas"); sp.width=sp.height=64;
+  (function(){var s=sp.getContext("2d");
+    var p=function(d,f){s.fillStyle=f;s.fill(new Path2D(d))};
+    p("M17 39c1.8-9.8 11.3-17 22-14.2 7.3 1.9 12.9 7.9 14.1 15.4.6 3.8-2.3 7.3-6.1 7.3H23.2c-4 0-7-3.8-6.2-8.5Z","#f6c431");
+    p("M12.3 35.2c-2.6-2.7-3.2-6.5-1.3-8.8 2.1-2.5 6.5-1.8 9.4 1.4l7.4 8.1-10.1 5-5.4-5.7Z","#f0b62d");
+    p("M32.8 21.2c0-7.2 5.2-12.7 12.2-12.7 6.7 0 11.8 4.9 11.8 11.4 0 6.1-4.8 10.8-11.1 10.8h-8.5c-2.5 0-4.4-1.9-4.4-4.3v-5.2Z","#ffd85a");
+    p("M55.4 19.1h7.1c1.1 0 1.7 1.4.9 2.2l-5 4.9c-.8.8-2.2.5-2.7-.5l-2.1-4.4c-.5-1.1.3-2.2 1.8-2.2Z","#f58528");
+    s.fillStyle="#25323a";s.beginPath();s.arc(47.7,17.7,2.6,0,7);s.fill();})();
+  // packed slots
+  function slots(y0,y1,dir){var a=[],row=0;for(var y=y1;dir>0?y>y0:y<y0;y-=dir*R*1.55,row++){var hw=halfWidthAt(y)-R;var off=row%2?R:0;for(var x=-hw+off;x<=hw;x+=R*2){a.push({x:cx+x+(Math.random()-.5)*3,y:y+(Math.random()-.5)*3,r:(Math.random()-.5)*.6,f:Math.random()<.5})}}return a}
+  // top: fill from neck upward (bottom of top bulb first)
+  var topSlots=slots(topY+10,neckY-26,1); // ordered from near neck upward
+  // bottom: fill from bottom up
+  var botSlots=slots(neckY+30,botY-16,1);
+  topSlots=topSlots.slice(0,TOTAL); // remaining n = topSlots[0..n)
+  TOTAL=topSlots.length;
+  var st=load(); function load(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return{}}}
+  function save(){localStorage.setItem(KEY,JSON.stringify(st))}
+  st.best = typeof st.best==="number"?st.best:null;
+  var mode="idle", startAt=0, frozenMs=0, falling=[], lastLeft=TOTAL, wake=null;
+  if(st.running&&st.startAt&&Date.now()-st.startAt<DURATION+60000){mode="run";startAt=st.startAt}
+  function elapsed(){return mode==="run"?Math.min(DURATION,Date.now()-startAt):frozenMs}
+  function leftAt(ms){return Math.max(0,Math.ceil(TOTAL*(1-ms/DURATION)))}
+  function fmt(ms){var s=Math.floor(ms/1000);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0")}
+  function drawDuck(x,y,rot,flip,sc){ctx.save();ctx.translate(x,y);ctx.rotate(rot);if(flip)ctx.scale(-1,1);var d=R*2.3*(sc||1);ctx.drawImage(sp,-d/2,-d/2,d,d);ctx.restore()}
+  function glassPath(){ctx.beginPath();ctx.moveTo(cx,neckY);for(var y=neckY;y>=topY;y-=4)ctx.lineTo(cx-halfWidthAt(y)-8,y);for(y=topY;y<=neckY;y+=4)ctx.lineTo(cx+halfWidthAt(y)+8,y);for(y=neckY;y<=botY;y+=4)ctx.lineTo(cx+halfWidthAt(y)+8,y);for(y=botY;y>=neckY;y-=4)ctx.lineTo(cx-halfWidthAt(y)-8,y);ctx.closePath()}
+  function frame(){
+    var ms=elapsed(), left=mode==="idle"?TOTAL:leftAt(ms);
+    if(mode==="run"&&left<lastLeft){for(var k=lastLeft-1;k>=left;k--){var s=topSlots[k];falling.push({x:s.x,y:s.y,vx:(cx-s.x)*.04,vy:0,r:s.r,f:s.f,phase:0,target:TOTAL-1-k})}}
+    lastLeft=left;
+    ctx.clearRect(0,0,W,H);
+    // glass
+    glassPath();ctx.fillStyle="rgba(232,248,255,.55)";ctx.fill();
+    ctx.save();glassPath();ctx.clip();
+    for(var i=0;i<left;i++){var s=topSlots[i];drawDuck(s.x,s.y,s.r,s.f)}
+    var landed=TOTAL-left-falling.length;
+    for(i=0;i<landed&&i<botSlots.length;i++){var b=botSlots[i];drawDuck(b.x,b.y,b.r,b.f)}
+    ctx.restore();
+    // falling ducks
+    var still=[];falling.forEach(function(d){
+      if(d.phase===0){d.x+=(cx-d.x)*.18;d.y+=(neckY-d.y)*.18;if(Math.abs(d.y-neckY)<6){d.phase=1;d.x=cx;d.vy=2}}
+      else{var tg=botSlots[Math.min(d.target,botSlots.length-1)];d.vy+=0.9;d.y+=d.vy;d.x+=(tg.x-d.x)*.12;d.r+=.15;if(d.y>=tg.y)return}
+      drawDuck(d.x,d.y,d.r,d.f,.9);still.push(d)});
+    falling=still;
+    // frame
+    glassPath();ctx.lineWidth=7;ctx.strokeStyle="rgba(255,255,255,.95)";ctx.stroke();ctx.lineWidth=2;ctx.strokeStyle="rgba(24,86,111,.35)";ctx.stroke();
+    ctx.fillStyle="#8a5a2b";ctx.beginPath();ctx.roundRect(cx-halfW-36,topY-34,2*halfW+72,26,12);ctx.fill();ctx.beginPath();ctx.roundRect(cx-halfW-36,botY+8,2*halfW+72,26,12);ctx.fill();
+    $("time").textContent=fmt(ms);$("left").textContent=left;
+    if(mode==="run"&&ms>=DURATION)finish(true);
+    requestAnimationFrame(frame);
+  }
+  function setButtons(){$("start").classList.toggle("hidden",mode!=="idle");$("stop").classList.toggle("hidden",mode!=="run");$("again").classList.toggle("hidden",mode!=="done")}
+  function showBest(){$("best").textContent="Best: "+(st.best===null?"\u2013":st.best)}
+  async function lock(){try{if("wakeLock"in navigator){wake=await navigator.wakeLock.request("screen");$("wl").textContent="\u2600 Screen stays awake";wake.addEventListener("release",function(){if(mode!=="run")$("wl").textContent=""})}}catch(e){$("wl").textContent=""}}
+  function unlock(){if(wake){wake.release().catch(function(){});wake=null}$("wl").textContent=""}
+  document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"&&mode==="run")lock()});
+  function start(){mode="run";startAt=Date.now();lastLeft=TOTAL;falling=[];st.running=true;st.startAt=startAt;save();setButtons();lock();$("msg").textContent="Ducks are falling\u2026 hurry to bed!"}
+  function stars(){var e=["\u2B50","\uD83C\uDF1F","\u2728","\uD83E\uDD86"];for(var i=0;i<18;i++){var s=document.createElement("div");s.className="star";s.textContent=e[i%4];s.style.left=Math.random()*90+"vw";s.style.top=(60+Math.random()*30)+"vh";s.style.animationDelay=Math.random()*.6+"s";document.body.appendChild(s);setTimeout(s.remove.bind(s),2600)}}
+  function finish(timeout){frozenMs=timeout?DURATION:Math.min(DURATION,Date.now()-startAt);mode="done";st.running=false;var score=leftAt(frozenMs);
+    var nb=st.best===null||score>st.best; if(nb&&score>0)st.best=score; else if(st.best===null)st.best=score; save();showBest();setButtons();unlock();
+    $("msg").textContent=timeout?"Time's up \u2014 all the ducks fell out. Score 0. Try again tomorrow!":(nb&&score>0?"NEW HIGH SCORE! "+score+" ducks! Good night \uD83C\uDF19":"Good night! You kept "+score+" ducks.");
+    if(!timeout&&score>0)stars(); if(navigator.vibrate)navigator.vibrate(60)}
+  $("start").onclick=start;
+  $("stop").onclick=function(){finish(false)};
+  $("again").onclick=function(){mode="idle";frozenMs=0;falling=[];lastLeft=TOTAL;setButtons();$("msg").textContent="Ready for bed? Tap Start!"};
+  $("resetBest").onclick=function(){if(confirm("Reset the high score?")){st.best=null;save();showBest()}};
+  if(mode==="run"){lastLeft=leftAt(elapsed());lock();$("msg").textContent="Ducks are falling\u2026 hurry to bed!"}
+  setButtons();showBest();requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
