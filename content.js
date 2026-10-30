@@ -30,8 +30,8 @@ window.VERA_CONTENT = [
   {
     title: "Vera's Simple Duck Counter",
     category: "tools",
-    description: "Two big buttons for the day: golden ducks add up, red Xs cancel them, and every net 5 ducks earns a Pikachu.",
-    href: "tools/duck-counter/?v=fanfare2",
+    description: "Two big buttons for the day: golden ducks add up, a blur fades one away, and every net 5 ducks earns a Pikachu.",
+    href: "tools/duck-counter/?v=blur1",
     status: "ready"
   },
   {
