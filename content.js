@@ -61,5 +61,12 @@ window.VERA_CONTENT = [
     description: "A playful ducky boat game built for Vera.",
     href: "games/ducky-boat-adventure/",
     status: "ready"
+  },
+  {
+    title: "Vera's Duck Math",
+    category: "games",
+    description: "Spin the duck reels, add or take away, and tap the answer. Streaks grow into new hats, bigger showers, and golden jackpots.",
+    href: "games/duck-math/",
+    status: "ready"
   }
 ];
