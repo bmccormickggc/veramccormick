@@ -14,6 +14,13 @@ window.VERA_CONTENT = [
     status: "ready"
   },
   {
+    title: "Vera and Dada's Day at the Bengals Game",
+    category: "stories",
+    description: "A picture book from Vera and Dada's Saturday at the Bengals game.",
+    href: "stories/bengals-game/",
+    status: "ready"
+  },
+  {
     title: "Vera's Potty Tracker",
     category: "tools",
     description: "A weekly potty-training tracker with ducks, simple buttons, reset, test sound, and undo.",
