@@ -169,7 +169,58 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
 .goal.yes{color:#8a5a00}
 .goal.jack{color:#8a5a00;font-size:clamp(20px,4.5vw,28px)}
 .goal.soft{color:#3d4a7a}
-.answers{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.answers{display:grid;gap:12px;margin-top:12px}
+.answers.n3{grid-template-columns:repeat(3,1fr)}
+.answers.n4{grid-template-columns:1fr 1fr}
+.reels.single{grid-template-columns:1fr}
+.wideface{justify-content:center}
+.eq{display:flex;align-items:center;justify-content:center;width:100%;gap:2px}
+.side{width:44%;display:flex;flex-direction:column;align-items:center;gap:2px}
+.side .flock{flex-wrap:nowrap}
+.plusmark{font-size:clamp(32px,8vw,48px);font-weight:900;color:#5a3d00;line-height:1}
+.duckbtn{position:relative;display:inline-flex;padding:0;background:transparent;border-radius:14px;line-height:0}
+.duckbtn .duckimg{width:100%;height:100%;display:block}
+.flock.lg .duckbtn{width:56px;height:56px}
+.flock.md .duckbtn{width:46px;height:46px}
+.flock.sm .duckbtn{width:36px;height:36px}
+.flock.xs .duckbtn{width:30px;height:30px}
+.duckbtn.lit{background:radial-gradient(circle,rgba(255,225,74,.9),rgba(255,225,74,.25) 68%,transparent 72%)}
+.duckbtn em{
+  position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+  font-style:normal;font-weight:900;font-size:13px;line-height:1.25;
+  background:#fff;color:#18566f;border-radius:99px;min-width:16px;text-align:center;
+  box-shadow:0 1px 0 rgba(24,52,63,.16);padding:0 3px;
+}
+.pond{
+  position:relative;overflow:hidden;min-height:156px;
+  background:linear-gradient(180deg,#e7f7ff 0%,#fff 58%,#fff6dc 100%);
+  border-radius:16px;border:3px solid rgba(255,255,255,.8);
+  box-shadow:inset 0 8px 14px rgba(24,52,63,.08);
+  padding:14px 8px 12px;
+}
+.pond-ducks{position:relative;z-index:1;display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-end;gap:6px;min-height:112px}
+.pond .duckbtn{width:62px;height:62px}
+.duckbtn.bob{animation:bob 1.5s ease-in-out infinite}
+.duckbtn.bob:nth-child(2n){animation-delay:.22s}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.duckbtn.swimaway{animation:swimAway 1.05s ease forwards;pointer-events:none}
+@keyframes swimAway{
+  0%{transform:translateY(0) scale(1);filter:none;opacity:1}
+  40%{transform:translateY(-16px) scale(1.08);filter:blur(7px);opacity:.45}
+  100%{transform:translateY(-46px) scale(1.18);filter:blur(16px);opacity:0}
+}
+.duckbtn.gone{display:none}
+.ripples{position:absolute;left:8%;right:8%;bottom:10px;height:14px;z-index:0;pointer-events:none}
+.ripples i{position:absolute;height:8px;border-radius:50%;background:rgba(27,120,147,.18)}
+.ripples i:nth-child(1){left:6%;width:28%}
+.ripples i:nth-child(2){left:38%;width:22%;bottom:4px}
+.ripples i:nth-child(3){right:8%;width:26%}
+.recount{
+  display:block;margin:8px auto 0;background:transparent;color:#18566f;
+  font-weight:800;font-size:15px;min-height:44px;text-decoration:underline;
+}
+.level-note{text-align:center;color:#5f7d86;font-size:13px;font-weight:800;margin:8px 0 0;line-height:1.35}
+.caption.ask{font-size:18px;color:#fff}
 .choice{
   width:100%;min-height:92px;border-radius:22px;font-size:clamp(40px,10vw,64px);font-weight:900;line-height:1;
   box-shadow:0 8px 0 rgba(24,52,63,.14);
@@ -239,12 +290,13 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
 }
 @keyframes fall{to{transform:translateY(108vh) rotate(340deg)}}
 @media (min-width:720px){
-  .answers{grid-template-columns:repeat(4,1fr)}
+  .answers.n4{grid-template-columns:repeat(4,1fr)}
   .choice{min-height:110px}
-  .flock.lg .duckimg{width:72px;height:72px}
-  .flock.md .duckimg{width:52px;height:52px}
-  .flock.sm{width:180px}
-  .flock.sm .duckimg{width:32px;height:32px}
+  .flock.lg .duckimg,.flock.lg .duckbtn{width:72px;height:72px}
+  .flock.md .duckimg,.flock.md .duckbtn{width:56px;height:56px}
+  .flock.sm .duckimg,.flock.sm .duckbtn{width:44px;height:44px}
+  .flock.xs .duckimg,.flock.xs .duckbtn{width:36px;height:36px}
+  .pond .duckbtn{width:76px;height:76px}
   .cd,.cd .duckimg{width:54px;height:54px}
 }
 @media (max-height:700px){
@@ -252,8 +304,9 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
   .go{min-height:64px;font-size:28px}
 }
 @media (prefers-reduced-motion:reduce){
-  .bulb,.choice.popin,.streak-num.pop,.streak-num.rest,.floater,.cd.got{animation:none !important}
+  .bulb,.choice.popin,.streak-num.pop,.streak-num.rest,.floater,.cd.got,.duckbtn.bob{animation:none !important}
   .cabinet.is-miss::after{animation:none;opacity:0}
+  .duckbtn.swimaway{animation:none !important;opacity:.2;filter:blur(8px)}
 }
 </style>
 </head>
@@ -288,6 +341,7 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
     </div>
     <p class="goal" id="startGoal"></p>
     <div class="shelf" id="startShelf" aria-label="Duck hats"></div>
+    <p class="level-note" id="levelNote"></p>
     <p class="fine">Saved on this device only.</p>
     <button class="quiet" id="reset" type="button">Reset saved prizes</button>
   </section>
@@ -309,17 +363,20 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
     <p class="goal" id="goal"></p>
     <div class="cabinet" id="cabinet">
       <div class="bulbs" id="playBulbs"></div>
-      <div class="reels" id="reels">
-        <div class="window"><div class="strip" id="stripA"></div></div>
-        <div class="window"><div class="strip" id="stripOp"></div></div>
-        <div class="window"><div class="strip" id="stripB"></div></div>
+      <div class="reels single" id="reels">
+        <div class="window wide"><div class="strip" id="stripAdd"></div></div>
+      </div>
+      <div class="pond" id="pond" hidden>
+        <div class="ripples" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="pond-ducks" id="pondDucks"></div>
       </div>
       <div class="countpond" id="countpond" hidden></div>
       <p class="caption" id="caption"></p>
       <p class="sumline" id="sumline"></p>
     </div>
     <div class="answers" id="answers" role="group" aria-label="Answers"></div>
-    <p class="hint" id="hint" hidden>Count the ducks, then tap a number.</p>
+    <p class="hint" id="hint" hidden>Tap each duck to count, then tap the number.</p>
+    <button class="recount" id="recount" type="button" hidden>Count again</button>
     <button class="go" id="again" type="button" hidden>Spin again</button>
   </section>
 </div>
@@ -337,8 +394,64 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
 
 <script>
 (function () {
-  var KEY = "vera-duck-math-v1";
+  var KEY = "vera-duck-math-v2";
+  var OLD_KEY = "vera-duck-math-v1";
   var SOUND_KEY = "veraGoldenDuckTracker.sound";
+  // Adaptive rule:
+  // Target about 95% correct in a rolling window of the last 20 answers.
+  // That is not a 10% miss rate. The 10-12% figure is the skill stretch:
+  // each level adds one to the max sum or one new number (a single extra duck).
+  // From sums around 8 upward, +1 is about a 10-12% stretch. Earlier, +1 duck
+  // is the smallest step. Step up only at or above 95% and without hesitation.
+  // Step down after 2 misses in a short span, or 3 slow answers. One miss
+  // does not change the level. Streaks and jackpots never change the math.
+  // A new sitting starts one step below the saved level.
+  var ADAPT_WINDOW = 20;
+  var ADAPT_TARGET = 0.95;
+  var ADAPT_MIN_SAMPLES = 16;
+  var ADAPT_MISS_SPAN = 5;
+  var ADAPT_MISS_DROP = 2;
+  var ADAPT_SLOW_SPAN = 8;
+  var ADAPT_SLOW_DROP = 3;
+  var ADAPT_DROP_COOLDOWN = 3;
+  var ADAPT_FLUENT = 0.9;
+  var SESSION_GAP_MS = 10 * 60 * 1000;
+  var ADD_LADDER = [
+    { maxSum: 3, maxPart: 2 },
+    { maxSum: 4, maxPart: 2 },
+    { maxSum: 4, maxPart: 3 },
+    { maxSum: 5, maxPart: 3 },
+    { maxSum: 5, maxPart: 4 },
+    { maxSum: 6, maxPart: 3 },
+    { maxSum: 6, maxPart: 4 },
+    { maxSum: 6, maxPart: 5 },
+    { maxSum: 7, maxPart: 4 },
+    { maxSum: 7, maxPart: 5 },
+    { maxSum: 8, maxPart: 4 },
+    { maxSum: 8, maxPart: 5 },
+    { maxSum: 9, maxPart: 5 },
+    { maxSum: 10, maxPart: 5 }
+  ];
+  var ADD_START = 3;
+  var SUB_UNLOCK_AT = 5;
+  var SUB_LADDER = [
+    { from: 2, take: 1 },
+    { from: 3, take: 1 },
+    { from: 4, take: 1 },
+    { from: 5, take: 1 },
+    { from: 3, take: 2 },
+    { from: 4, take: 2 },
+    { from: 5, take: 2 },
+    { from: 6, take: 1 },
+    { from: 6, take: 2 },
+    { from: 7, take: 1 },
+    { from: 7, take: 2 },
+    { from: 5, take: 3 },
+    { from: 8, take: 1 },
+    { from: 8, take: 2 }
+  ];
+  var SUB_SIGN_AT = 4;
+  var WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
   var JACKPOT = { 5: 8, 10: 12, 20: 25, 30: 40, 40: 55, 50: 80 };
   var TIERS = [
     { id: "pond", name: "Pond", at: 0, mult: 1, body: "#ffd85a", wing: "#f0b62d", stroke: "#c98712" },
@@ -391,7 +504,71 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
   }
 
   function fresh() {
-    return { best: 0, streak: 0, bank: 0, hats: [], solved: 0, triedSub: false, tried10: false, tried20: false };
+    return {
+      best: 0, streak: 0, bank: 0, hats: [], solved: 0,
+      addLevel: ADD_START, subLevel: 0, subUnlocked: false, sinceSub: 0,
+      addLog: [], subLog: [], addMark: 0, subMark: 0, addCooldown: 0, subCooldown: 0,
+      savedAt: Date.now()
+    };
+  }
+
+  function word(n) { return WORDS[n] || String(n); }
+
+  function isSlow(ms, howMany) {
+    var limit = howMany <= 5 ? 9000 : howMany <= 7 ? 12000 : 15000;
+    return ms > limit;
+  }
+
+  function consider(log, level, min, max, mark, cooldown) {
+    var change = "hold";
+    var i;
+    if (cooldown > 0) {
+      return { level: level, mark: mark, cooldown: cooldown - 1, change: "hold" };
+    }
+    var after = [];
+    for (i = mark; i < log.length; i++) after.push(log[i]);
+    var missSpan = after.slice(-ADAPT_MISS_SPAN);
+    var misses = 0;
+    for (i = 0; i < missSpan.length; i++) if (!missSpan[i].ok) misses++;
+    if (misses >= ADAPT_MISS_DROP) change = "down";
+    if (change !== "down") {
+      var slowSpan = after.slice(-ADAPT_SLOW_SPAN);
+      var slows = 0;
+      for (i = 0; i < slowSpan.length; i++) if (slowSpan[i].slow) slows++;
+      if (slows >= ADAPT_SLOW_DROP) change = "down";
+    }
+    var since = log.length - mark;
+    if (change !== "down" && since >= ADAPT_MIN_SAMPLES) {
+      var recent = log.slice(-ADAPT_WINDOW);
+      if (recent.length >= ADAPT_MIN_SAMPLES) {
+        var correct = 0;
+        var fast = 0;
+        for (i = 0; i < recent.length; i++) {
+          if (recent[i].ok) {
+            correct++;
+            if (!recent[i].slow) fast++;
+          }
+        }
+        var acc = correct / recent.length;
+        var last3 = recent.slice(-3);
+        var last3ok = last3.length === 3;
+        for (i = 0; i < last3.length; i++) if (!last3[i].ok || last3[i].slow) last3ok = false;
+        var fluent = correct > 0 && (fast / correct) >= ADAPT_FLUENT;
+        if (acc + 1e-9 >= ADAPT_TARGET && last3ok && fluent) change = "up";
+      }
+    }
+    var next = level;
+    var nextMark = mark;
+    var nextCool = 0;
+    if (change === "down" && level > min) {
+      next = level - 1;
+      nextMark = log.length;
+      nextCool = ADAPT_DROP_COOLDOWN;
+    } else if (change === "up" && level < max) {
+      next = level + 1;
+      nextMark = log.length;
+    } else change = "hold";
+    return { level: next, mark: nextMark, cooldown: nextCool, change: change };
   }
 
   function tierAt(streak) {
@@ -434,92 +611,80 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
     return tDist + " more for " + nextT.name + " ducks";
   }
 
-  function bandFor(streak) {
-    if (streak < 5) return { max: 5, sub: 0 };
-    if (streak < 10) return { max: 5, sub: 0.3 };
-    if (streak < 20) return { max: 10, sub: 0.4 };
-    return { max: 20, sub: 0.5 };
+  function addSpec(level) {
+    var i = clampInt(level, 0, ADD_LADDER.length - 1);
+    return ADD_LADDER[i];
   }
 
-  function pick(list) {
-    return list[rand(0, list.length - 1)];
-  }
-
-  function fromPair(op, pair) {
-    return { op: op, a: pair[0], b: pair[1], answer: op === "+" ? pair[0] + pair[1] : pair[0] - pair[1] };
-  }
-
-  function makeAdd(max) {
-    var a = rand(1, max - 1);
-    var b = rand(1, max - a);
-    return { op: "+", a: a, b: b, answer: a + b };
-  }
-
-  function makeSub(max) {
-    var a = rand(2, max);
-    var b = rand(1, a);
-    return { op: "-", a: a, b: b, answer: a - b };
-  }
-
-  function buildProblem(streak, solved, flags, prevKey) {
-    var base = {
-      triedSub: !!(flags && flags.triedSub),
-      tried10: !!(flags && flags.tried10),
-      tried20: !!(flags && flags.tried20)
-    };
-    var problemOut = null;
-    var flagsOut = base;
-    var guard;
-    for (guard = 0; guard < 16; guard++) {
-      var trialFlags = { triedSub: base.triedSub, tried10: base.tried10, tried20: base.tried20 };
-      var trial = rollProblem(streak, solved, trialFlags);
-      var key = trial.a + trial.op + trial.b;
-      if (key !== prevKey || guard === 15) {
-        problemOut = trial;
-        flagsOut = trialFlags;
-        break;
+  function additionPairs(level) {
+    var spec = addSpec(level);
+    var floor = Math.max(2, spec.maxSum - 1);
+    var list = [];
+    var a, b;
+    for (a = 1; a <= spec.maxPart; a++) {
+      for (b = 1; b <= spec.maxPart; b++) {
+        var sum = a + b;
+        if (sum < floor || sum > spec.maxSum) continue;
+        list.push([a, b]);
       }
     }
-    return { problem: problemOut, flags: flagsOut, key: problemOut.a + problemOut.op + problemOut.b };
+    return list;
   }
 
-  function rollProblem(streak, solved, flagsOut) {
-    if (streak === 0 && !solved) {
-      return fromPair("+", pick([[1, 1], [1, 2], [2, 1], [2, 2], [1, 3], [3, 1], [2, 3], [3, 2]]));
-    }
-    var band = bandFor(streak);
-    var wantSub = band.sub > 0 && Math.random() < band.sub;
-    if (band.max >= 20 && !flagsOut.tried20) {
-      flagsOut.tried20 = true;
-      if (wantSub) return fromPair("-", pick([[8, 2], [9, 1], [10, 3], [7, 2], [12, 2]]));
-      return fromPair("+", pick([[6, 5], [7, 5], [8, 4], [9, 3], [6, 6], [8, 5], [7, 6]]));
-    }
-    if (band.max >= 10 && band.max < 20 && !flagsOut.tried10) {
-      flagsOut.tried10 = true;
-      if (wantSub) return fromPair("-", pick([[5, 1], [6, 2], [7, 1], [4, 2], [8, 3]]));
-      return fromPair("+", pick([[4, 3], [5, 2], [6, 2], [4, 4], [3, 5], [7, 2], [8, 1], [5, 4], [6, 3]]));
-    }
-    if (wantSub && !flagsOut.triedSub) {
-      flagsOut.triedSub = true;
-      return fromPair("-", pick([[2, 1], [3, 1], [3, 2], [4, 1], [5, 1], [4, 2]]));
-    }
-    if (wantSub) {
-      flagsOut.triedSub = true;
-      return makeSub(band.max);
-    }
-    return makeAdd(band.max);
+  function choiceCount(maxSum, track) {
+    if (track === "sub") return 3;
+    return maxSum <= 6 ? 3 : 4;
   }
 
-  function makeChoices(answer) {
-    var hi = Math.min(20, Math.max(answer + 3, 5));
+  function makeChoices(answer, n) {
+    var deltas = [1, -1, 2, -2, 3, -3, 4, -4];
     var pool = [];
-    var n;
-    for (n = 0; n <= hi; n++) if (n !== answer) pool.push(n);
-    shuffle(pool);
-    pool.sort(function (a, b) { return Math.abs(a - answer) - Math.abs(b - answer); });
-    var picks = pool.slice(0, 3);
+    var i;
+    for (i = 0; i < deltas.length; i++) {
+      var v = answer + deltas[i];
+      if (v < 0 || v > 12 || v === answer) continue;
+      if (pool.indexOf(v) < 0) pool.push(v);
+    }
+    var picks = pool.slice(0, Math.max(1, n - 1));
     picks.push(answer);
     return shuffle(picks);
+  }
+
+  function buildProblem(s, prevKey) {
+    var useSub = !!(s.subUnlocked && s.sinceSub >= 4);
+    if (useSub) {
+      s.sinceSub = 0;
+      var spec = SUB_LADDER[clampInt(s.subLevel, 0, SUB_LADDER.length - 1)];
+      var showMinus = s.subLevel >= SUB_SIGN_AT;
+      return {
+        problem: {
+          track: "sub", op: "-", a: spec.from, b: spec.take, answer: spec.from - spec.take,
+          showMinus: showMinus, maxSum: spec.from
+        },
+        key: "sub" + spec.from + "-" + spec.take
+      };
+    }
+    if (s.subUnlocked) s.sinceSub++;
+    var levelSpec = addSpec(s.addLevel);
+    var pair;
+    if (!s.solved) pair = prevKey === "2+1" ? [1, 2] : [2, 1];
+    else {
+      var pairs = additionPairs(s.addLevel);
+      var usable = [];
+      var i;
+      for (i = 0; i < pairs.length; i++) {
+        if (pairs[i][0] + "+" + pairs[i][1] !== prevKey) usable.push(pairs[i]);
+      }
+      if (!usable.length) usable = pairs;
+      pair = usable[rand(0, usable.length - 1)];
+    }
+    return {
+      problem: {
+        track: "add", op: "+", a: pair[0], b: pair[1], answer: pair[0] + pair[1],
+        showMinus: false, maxSum: levelSpec.maxSum
+      },
+      key: pair[0] + "+" + pair[1]
+    };
   }
 
   function rewardFor(prev, next, owned) {
@@ -531,38 +696,117 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
     return { total: t.mult + jack, mult: t.mult, jack: jack, hat: hat, tier: t };
   }
 
-  function load() {
+  function readStore(key) {
     try {
-      var raw = JSON.parse(localStorage.getItem(KEY));
-      if (raw && typeof raw === "object") return sanitize(raw);
+      var raw = JSON.parse(localStorage.getItem(key));
+      if (raw && typeof raw === "object") return raw;
     } catch (e) {}
-    return fresh();
+    return null;
   }
 
-  function sanitize(s) {
-    var f = fresh();
-    f.best = clampInt(s.best, 0, 9999);
-    f.streak = clampInt(s.streak, 0, 9999);
-    f.bank = clampInt(s.bank, 0, 999999);
-    f.solved = clampInt(s.solved, 0, 999999);
-    f.triedSub = !!s.triedSub;
-    f.tried10 = !!s.tried10;
-    f.tried20 = !!s.tried20;
+  function cleanLog(list) {
+    var out = [];
+    if (Object.prototype.toString.call(list) !== "[object Array]") return out;
+    var i;
+    for (i = Math.max(0, list.length - 40); i < list.length; i++) {
+      var row = list[i];
+      if (!row || typeof row !== "object") continue;
+      out.push({ ok: !!row.ok, slow: !!row.slow });
+    }
+    return out;
+  }
+
+  function copyPrizes(from, f) {
+    f.best = clampInt(from.best, 0, 9999);
+    f.streak = clampInt(from.streak, 0, 9999);
+    f.bank = clampInt(from.bank, 0, 999999);
+    f.solved = clampInt(from.solved, 0, 999999);
     var known = {};
     var i;
     for (i = 0; i < TIERS.length; i++) known[TIERS[i].id] = true;
-    if (Object.prototype.toString.call(s.hats) === "[object Array]") {
-      for (i = 0; i < s.hats.length; i++) {
-        var id = s.hats[i];
+    if (Object.prototype.toString.call(from.hats) === "[object Array]") {
+      for (i = 0; i < from.hats.length; i++) {
+        var id = from.hats[i];
         if (known[id] && id !== "pond" && f.hats.indexOf(id) < 0) f.hats.push(id);
       }
     }
     if (f.best < f.streak) f.best = f.streak;
+  }
+
+  function sanitize(s) {
+    var f = fresh();
+    copyPrizes(s, f);
+    if (s.addLevel != null) f.addLevel = clampInt(s.addLevel, 0, ADD_LADDER.length - 1);
+    if (s.subLevel != null) f.subLevel = clampInt(s.subLevel, 0, SUB_LADDER.length - 1);
+    f.subUnlocked = !!s.subUnlocked || f.addLevel >= SUB_UNLOCK_AT;
+    f.sinceSub = clampInt(s.sinceSub, 0, 20);
+    f.addLog = cleanLog(s.addLog);
+    f.subLog = cleanLog(s.subLog);
+    f.addMark = clampInt(s.addMark, 0, f.addLog.length);
+    f.subMark = clampInt(s.subMark, 0, f.subLog.length);
+    f.addCooldown = clampInt(s.addCooldown, 0, 10);
+    f.subCooldown = clampInt(s.subCooldown, 0, 10);
+    f.savedAt = clampInt(s.savedAt, 0, Date.now() + 1000);
     return f;
   }
 
+  function load() {
+    var raw = readStore(KEY);
+    if (raw) {
+      var f = sanitize(raw);
+      if (f.savedAt && Date.now() - f.savedAt > SESSION_GAP_MS) {
+        f.addLevel = Math.max(0, f.addLevel - 1);
+        if (f.subLevel > 0) f.subLevel -= 1;
+        f.addLog = [];
+        f.subLog = [];
+        f.addMark = 0;
+        f.subMark = 0;
+        f.addCooldown = 0;
+        f.subCooldown = 0;
+        f.sinceSub = 0;
+      }
+      f.savedAt = Date.now();
+      return f;
+    }
+    var old = readStore(OLD_KEY);
+    if (old) {
+      var migrated = fresh();
+      copyPrizes(old, migrated);
+      return migrated;
+    }
+    return fresh();
+  }
+
   function save() {
+    state.savedAt = Date.now();
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  var speakToken = 0;
+
+  function quietSpeech() {
+    speakToken++;
+    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
+  }
+
+  function speak(text) {
+    if (!soundOn || !text) return;
+    var synth = window.speechSynthesis;
+    if (!synth || !window.SpeechSynthesisUtterance) return;
+    var token = ++speakToken;
+    var uttered;
+    try {
+      synth.resume();
+      synth.cancel();
+      uttered = new SpeechSynthesisUtterance(text);
+      uttered.rate = 0.92;
+      uttered.pitch = 1.12;
+      uttered.lang = "en-US";
+    } catch (e2) { return; }
+    setTimeout(function () {
+      if (token !== speakToken || !soundOn) return;
+      try { synth.speak(uttered); } catch (e3) {}
+    }, 60);
   }
 
   function initAudio() {
@@ -748,14 +992,37 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
     return html;
   }
 
-  function flockHTML(count, tier, mist) {
-    if (count <= 0) return '<div class="flock lg"><span class="none">0</span></div>';
-    var size = count <= 3 ? "lg" : count <= 5 ? "md" : "sm";
-    return '<div class="flock ' + size + (mist ? " misty" : "") + '">' + ducks(count, tier) + "</div>";
+  function sizeClass(n) {
+    if (n <= 2) return "lg";
+    if (n === 3) return "md";
+    if (n === 4) return "sm";
+    return "xs";
   }
 
-  function faceHTML(count, tier, mist) {
-    return '<div class="face"><div class="stack">' + flockHTML(count, tier, mist) + '</div><div class="numeral">' + count + "</div></div>";
+  function duckButtons(n, tier, tappable) {
+    var html = "";
+    var i;
+    for (i = 0; i < n; i++) {
+      if (tappable) html += '<button type="button" class="duckbtn">' + duckSVG(tier) + "</button>";
+      else html += duckSVG(tier);
+    }
+    return html;
+  }
+
+  function sideHTML(n, tier, tappable) {
+    return '<div class="side"><div class="flock ' + sizeClass(n) + '">' + duckButtons(n, tier, tappable) +
+      '</div><div class="numeral">' + n + "</div></div>";
+  }
+
+  function wideFace(a, b, tier, tappable) {
+    return '<div class="face wideface"><div class="eq">' + sideHTML(a, tier, tappable) +
+      '<div class="plusmark">+</div>' + sideHTML(b, tier, tappable) + "</div></div>";
+  }
+
+  function faceHTML(count, tier) {
+    var size = count <= 3 ? "lg" : count <= 5 ? "md" : "sm";
+    return '<div class="face"><div class="stack"><div class="flock ' + size + '">' + ducks(count, tier) +
+      '</div></div><div class="numeral">' + count + "</div></div>";
   }
 
   function opFace(op) {
@@ -764,13 +1031,32 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
   }
 
   function captionFor(p) {
-    if (p.op === "+") return plural(p.a, "duck") + " plus " + plural(p.b, "duck");
-    return plural(p.a, "duck") + " take away " + plural(p.b, "duck");
+    if (p.track === "sub") return "How many ducks are left?";
+    return plural(p.a, "duck") + " and " + p.b + " more " + (p.b === 1 ? "duck" : "ducks");
+  }
+
+  function speechFor(p) {
+    if (p.track === "sub") {
+      if (p.showMinus) return word(p.a) + " take away " + word(p.b) + ". How many ducks are left?";
+      return "How many ducks are left?";
+    }
+    return word(p.a) + (p.a === 1 ? " duck and " : " ducks and ") + word(p.b) + " more " +
+      (p.b === 1 ? "duck" : "ducks") + ". How many ducks?";
   }
 
   function equationFor(p, result) {
+    var shown = result == null ? "?" : result;
+    if (p.track === "sub" && !p.showMinus) return shown === "?" ? "?" : String(shown);
     var sym = p.op === "+" ? "+" : "\u2212";
-    return p.a + " " + sym + " " + p.b + " = " + (result == null ? "?" : result);
+    return p.a + " " + sym + " " + p.b + " = " + shown;
+  }
+
+  function levelBlurb() {
+    var spec = addSpec(state.addLevel);
+    var line = "Sums up to " + spec.maxSum + ". One new duck at a time.";
+    if (!state.subUnlocked) return line + " Take-away waits until adding feels easy.";
+    var sub = SUB_LADDER[clampInt(state.subLevel, 0, SUB_LADDER.length - 1)];
+    return line + " Take-away story: " + sub.from + " ducks, " + sub.take + " swim away.";
   }
 
   function bulbHTML() {
@@ -853,7 +1139,8 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
     $("hatCount").textContent = String(state.hats.length);
     $("startShelf").innerHTML = shelfHTML();
     $("sheetShelf").innerHTML = shelfHTML();
-    $("sheetText").textContent = "Best streak " + state.best + " \u00b7 " + state.bank + " golden ducks. Hats and golden ducks stay when a streak rests.";
+    $("sheetText").textContent = "Best streak " + state.best + " \u00b7 " + state.bank + " golden ducks. Hats stay when a streak rests. " + levelBlurb();
+    $("levelNote").textContent = levelBlurb();
     if (state.streak > 0) {
       $("lede").textContent = "A streak of " + state.streak + " is waiting.";
       $("play").textContent = "Keep spinning!";
@@ -862,7 +1149,8 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
       $("play").textContent = "Spin!";
     }
     $("startGoal").textContent = state.streak > 0 ? nextGoal(state.streak) : "New hats appear as the streak grows.";
-    $("hint").hidden = state.solved > 0 || phase === "count" || phase === "celebrate" || phase === "spin";
+    $("hint").hidden = state.solved > 2 || phase === "count" || phase === "celebrate" || phase === "spin" || phase === "story";
+    $("hint").textContent = "Tap each duck to count, then tap the number.";
   }
 
   function renderSound() {
@@ -884,9 +1172,16 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
   }
 
   function renderChoices(mode, pick) {
+    var nButtons = choices.length || 3;
+    var list = mode === "lock" ? [] : choices;
+    var i;
+    if (mode === "lock") {
+      for (i = 0; i < nButtons; i++) list.push("\u00b7");
+    }
+    $("answers").className = "answers n" + list.length;
+    $("answers").hidden = false;
     var html = "";
-    var list = mode === "lock" ? ["\u00b7", "\u00b7", "\u00b7", "\u00b7"] : choices;
-    for (var i = 0; i < list.length; i++) {
+    for (i = 0; i < list.length; i++) {
       var n = list[i];
       var cls = "choice c" + (i % 4);
       var disabled = mode !== "play";
@@ -904,14 +1199,44 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
   }
 
   function snapStrips() {
+    var strip = $("stripAdd");
+    if (!strip || $("reels").hidden) return;
     var h = applyFace();
-    ["stripA", "stripOp", "stripB"].forEach(function (id) {
-      var strip = $(id);
-      var faces = strip.children.length;
-      if (!faces) return;
-      strip.style.animation = "none";
-      strip.style.transform = "translateY(" + (-(faces - 1) * h) + "px)";
-    });
+    var faces = strip.children.length;
+    if (!faces) return;
+    strip.style.animation = "none";
+    strip.style.transform = "translateY(" + (-(faces - 1) * h) + "px)";
+  }
+
+  var askedAt = 0;
+  var tapN = 0;
+
+  function resetTaps() {
+    tapN = 0;
+    var buttons = document.querySelectorAll(".duckbtn");
+    var i;
+    for (i = 0; i < buttons.length; i++) {
+      buttons[i].classList.remove("lit");
+      var badge = buttons[i].querySelector("em");
+      if (badge) buttons[i].removeChild(badge);
+    }
+    $("recount").hidden = true;
+  }
+
+  function countTap(btn) {
+    if (!btn || btn.classList.contains("lit") || btn.classList.contains("swimaway") || btn.classList.contains("gone")) return;
+    if (btn.disabled) return;
+    tapN++;
+    btn.classList.add("lit");
+    btn.insertAdjacentHTML("beforeend", "<em>" + tapN + "</em>");
+    speak(word(tapN));
+    playCountBlip(tapN - 1);
+    $("recount").hidden = false;
+  }
+
+  function setStory(name) {
+    if (name) $("cabinet").setAttribute("data-story", name);
+    else $("cabinet").removeAttribute("data-story");
   }
 
   function spinStrip(strip, count, duration) {
@@ -928,69 +1253,125 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
     strip.style.animation = "reelSpin " + duration + "ms cubic-bezier(.12,.72,.18,1) forwards";
   }
 
+  function noteAnswer(ok, ms) {
+    var entry = { ok: !!ok, slow: isSlow(ms, problem.maxSum) };
+    var result;
+    if (problem.track === "sub") {
+      state.subLog.push(entry);
+      if (state.subLog.length > 40) state.subLog = state.subLog.slice(-40);
+      result = consider(state.subLog, state.subLevel, 0, SUB_LADDER.length - 1, state.subMark, state.subCooldown);
+      state.subLevel = result.level;
+      state.subMark = result.mark;
+      state.subCooldown = result.cooldown;
+    } else {
+      state.addLog.push(entry);
+      if (state.addLog.length > 40) state.addLog = state.addLog.slice(-40);
+      result = consider(state.addLog, state.addLevel, 0, ADD_LADDER.length - 1, state.addMark, state.addCooldown);
+      state.addLevel = result.level;
+      state.addMark = result.mark;
+      state.addCooldown = result.cooldown;
+      if (state.addLevel >= SUB_UNLOCK_AT) state.subUnlocked = true;
+    }
+  }
+
   function spin() {
     clearTimers();
+    quietSpeech();
     pendingSpin = false;
+    resetTaps();
+    setStory("");
     setPhase("spin");
     $("again").hidden = true;
+    $("recount").hidden = true;
     $("countpond").hidden = true;
     $("countpond").innerHTML = "";
-    $("reels").hidden = false;
     $("sumline").className = "sumline";
+    $("caption").className = "caption";
     setCabinet("spin");
     applyFace();
-    var built = window.DuckMath.buildProblem(state.streak, state.solved, {
-      triedSub: state.triedSub, tried10: state.tried10, tried20: state.tried20
-    }, lastKey);
-    state.triedSub = !!built.flags.triedSub;
-    state.tried10 = !!built.flags.tried10;
-    state.tried20 = !!built.flags.tried20;
+    var built = window.DuckMath.buildProblem(state, lastKey);
     lastKey = built.key;
     problem = built.problem;
     problem.tier = tierAt(state.streak);
     save();
-    choices = makeChoices(problem.answer);
-    var mist = problem.op === "-";
+    choices = makeChoices(problem.answer, choiceCount(problem.maxSum, problem.track));
+    setGoal(nextGoal(state.streak), "");
+    if (problem.track === "sub") { startStory(); return; }
+    $("pond").hidden = true;
+    $("reels").hidden = false;
+    $("answers").hidden = false;
     var tier = problem.tier;
-    var decoys = 7;
-    var aHTML = "";
-    var bHTML = "";
-    var oHTML = "";
+    var decoys = 6;
+    var html = "";
     var i;
+    var samples = [[1, 1], [1, 2], [2, 1], [2, 2], [1, 3], [3, 1]];
     for (i = 0; i < decoys; i++) {
-      aHTML += faceHTML(rand(1, 5), tier, false);
-      bHTML += faceHTML(rand(1, 4), tier, false);
-      oHTML += opFace(i % 2 ? "-" : "+");
+      var sample = samples[i % samples.length];
+      html += wideFace(sample[0], sample[1], tier, false);
     }
-    aHTML += faceHTML(problem.a, tier, false);
-    bHTML += faceHTML(problem.b, tier, mist);
-    oHTML += opFace(problem.op);
-    $("stripA").innerHTML = aHTML;
-    $("stripB").innerHTML = bHTML;
-    $("stripOp").innerHTML = oHTML;
+    html += wideFace(problem.a, problem.b, tier, true);
+    $("stripAdd").innerHTML = html;
     $("caption").textContent = captionFor(problem);
     $("sumline").textContent = equationFor(problem, null);
-    setGoal(nextGoal(state.streak), "");
     renderChoices("lock");
-    var dA = reduceMotion ? 0 : 720;
-    var dOp = reduceMotion ? 0 : 940;
-    var dB = reduceMotion ? 0 : 1180;
-    spinStrip($("stripA"), decoys + 1, dA);
-    spinStrip($("stripOp"), decoys + 1, dOp);
-    spinStrip($("stripB"), decoys + 1, dB);
+    var dur = reduceMotion ? 0 : 880;
+    spinStrip($("stripAdd"), decoys + 1, dur);
     if (!reduceMotion) {
       var ticks = 0;
       var tickTimer = function () {
         if (phase !== "spin") return;
         playTick();
         ticks++;
-        if (ticks * 90 < dB) later(tickTimer, 90);
+        if (ticks * 80 < dur) later(tickTimer, 80);
       };
       tickTimer();
-      later(playDing, dA);
-      later(playDing, dOp);
     }
-    later(landed, dB + (reduceMotion ? 20 : 40));
+    later(landed, dur + (reduceMotion ? 20 : 40));
+  }
+
+  function startStory() {
+    $("reels").hidden = true;
+    $("pond").hidden = false;
+    $("answers").hidden = true;
+    var html = "";
+    var i;
+    for (i = 0; i < problem.a; i++) {
+      html += '<button type="button" class="duckbtn bob" data-i="' + i + '">' + duckSVG(problem.tier) + "</button>";
+    }
+    $("pondDucks").innerHTML = html;
+    $("caption").textContent = plural(problem.a, "duck") + (problem.a === 1 ? " is swimming." : " are swimming.");
+    $("sumline").textContent = String(problem.a);
+    setStory("swimming");
+    speak(word(problem.a) + (problem.a === 1 ? " duck is swimming." : " ducks are swimming."));
+    later(function () {
+      if (phase !== "spin" && phase !== "story") return;
+      setPhase("story");
+      var ducks = $("pondDucks").querySelectorAll(".duckbtn");
+      var k;
+      for (k = problem.answer; k < ducks.length; k++) ducks[k].classList.add(reduceMotion ? "gone" : "swimaway");
+      setStory("leaving");
+      var leaveLine = problem.b === 1 ? "One swims away." : word(problem.b) + " swim away.";
+      $("caption").textContent = leaveLine;
+      speak(leaveLine);
+      playPoof();
+    }, reduceMotion ? 280 : 1100);
+    later(function () {
+      if (phase !== "spin" && phase !== "story") return;
+      var gone = $("pondDucks").querySelectorAll(".swimaway");
+      var g;
+      for (g = 0; g < gone.length; g++) gone[g].classList.add("gone");
+      setPhase("answer");
+      setStory("ask");
+      setCabinet("");
+      $("caption").className = "caption ask";
+      $("caption").textContent = "How many ducks are left?";
+      $("sumline").textContent = problem.showMinus ? equationFor(problem, null) : "?";
+      $("answers").hidden = false;
+      renderChoices("play");
+      speak(speechFor(problem));
+      askedAt = Date.now();
+      $("live").textContent = "How many ducks are left?";
+    }, reduceMotion ? 520 : 2300);
   }
 
   function landed() {
@@ -999,14 +1380,20 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
     setCabinet("");
     playDing();
     renderChoices("play");
-    $("live").textContent = captionFor(problem) + ". Tap the answer.";
+    var line = speechFor(problem);
+    $("live").textContent = captionFor(problem);
+    speak(line);
+    askedAt = Date.now();
     var buttons = $("answers").querySelectorAll("button");
-    for (var i = 0; i < buttons.length; i++) buttons[i].style.animationDelay = (i * 0.04) + "s";
+    var i;
+    for (i = 0; i < buttons.length; i++) buttons[i].style.animationDelay = (i * 0.04) + "s";
   }
 
   function choose(n) {
     if (phase !== "answer") return;
     if (isNaN(n)) return;
+    var ms = askedAt ? Date.now() - askedAt : 0;
+    noteAnswer(n === problem.answer, ms);
     initAudio();
     if (n === problem.answer) win();
     else miss(n);
@@ -1020,6 +1407,7 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
   }
 
   function win() {
+    quietSpeech();
     var prev = state.streak;
     state.streak = prev + 1;
     if (state.streak > state.best) state.best = state.streak;
@@ -1056,6 +1444,7 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
     var rested = dropStreak(prev);
     state.streak = rested;
     save();
+    quietSpeech();
     setPhase("count");
     renderChoices("result", pick);
     renderChrome();
@@ -1063,48 +1452,42 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
     setCabinet("miss");
     playPoof();
     var note = rested !== prev ? " Streak rests at " + rested + "." : "";
-    setGoal("Let's count." + note, "soft");
-    $("live").textContent = "Let's count. " + plural(problem.answer, "duck") + "." + note;
+    var lead = problem.track === "sub" ? "Let's count the ducks still here." : "Let's count.";
+    setGoal(lead + note, "soft");
+    speak("Let's count.");
+    $("live").textContent = lead;
     $("again").hidden = false;
-    $("reels").hidden = true;
-    $("countpond").hidden = false;
+    $("recount").hidden = true;
     $("sumline").className = "sumline counting";
-    $("sumline").textContent = equationFor(problem, "\u2026");
+    if (problem.showMinus) $("sumline").textContent = equationFor(problem, "\u2026");
+    else if (problem.track === "sub") $("sumline").textContent = "?";
+    else $("sumline").textContent = equationFor(problem, "\u2026");
     runCount();
   }
 
   function runCount() {
     var run = countRun;
     var tier = problem.tier;
-    var pond = $("countpond");
-    var shown = problem.op === "+" ? problem.answer : problem.a;
-    if (shown <= 0) {
-      pond.innerHTML = '<div class="zero">0</div>';
-      finishCount(run);
-      return;
-    }
+    $("reels").hidden = true;
+    $("pond").hidden = false;
     var html = "";
     var i;
-    for (i = 0; i < shown; i++) html += '<span class="cd">' + duckSVG(tier) + "</span>";
-    pond.innerHTML = html;
-    var nodes = pond.querySelectorAll(".cd");
-    var step = reduceMotion ? 0 : (problem.answer > 12 ? 130 : 220);
-
+    for (i = 0; i < problem.answer; i++) {
+      html += '<button type="button" class="duckbtn" disabled>' + duckSVG(tier) + "</button>";
+    }
+    if (!problem.answer) html = '<div class="zero">0</div>';
+    $("pondDucks").innerHTML = html;
+    var nodes = $("pondDucks").querySelectorAll(".duckbtn");
+    var step = reduceMotion ? 0 : 240;
     function mark(index, num) {
       var el = nodes[index];
       if (!el) return;
-      el.className = "cd got";
-      el.innerHTML = duckSVG(tier) + "<em>" + num + "</em>";
+      el.classList.add("lit");
+      if (!el.querySelector("em")) el.insertAdjacentHTML("beforeend", "<em>" + num + "</em>");
     }
-
     function numberThem() {
       if (countRun !== run || phase !== "count") return;
-      if (problem.answer <= 0) {
-        pond.innerHTML = '<div class="zero">0</div>';
-        $("sumline").textContent = equationFor(problem, 0);
-        finishCount(run);
-        return;
-      }
+      if (!problem.answer) { finishCount(run); return; }
       if (step === 0) {
         var n;
         for (n = 0; n < problem.answer; n++) mark(n, n + 1);
@@ -1116,37 +1499,29 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
         if (countRun !== run || phase !== "count") return;
         if (cursor >= problem.answer) { finishCount(run); return; }
         mark(cursor, cursor + 1);
+        speak(word(cursor + 1));
         playCountBlip(cursor);
         cursor++;
         later(one, step);
       }
       one();
     }
-
-    if (problem.op === "-") {
-      later(function () {
-        if (countRun !== run || phase !== "count") return;
-        var k;
-        for (k = problem.answer; k < nodes.length; k++) {
-          if (reduceMotion) nodes[k].style.opacity = "0.2";
-          else nodes[k].className = "cd leaving";
-        }
-        if (problem.b > 0) playPoof();
-      }, reduceMotion ? 0 : 420);
-      later(numberThem, reduceMotion ? 40 : 1450);
-    } else {
-      later(numberThem, reduceMotion ? 0 : 180);
-    }
+    later(numberThem, reduceMotion ? 0 : 200);
   }
 
   function finishCount(run) {
     if (countRun !== run || phase !== "count") return;
-    $("sumline").textContent = equationFor(problem, problem.answer);
+    var line = problem.track === "sub"
+      ? "That's " + plural(problem.answer, "duck") + " left."
+      : "That's " + plural(problem.answer, "duck") + ".";
+    if (problem.showMinus) $("sumline").textContent = equationFor(problem, problem.answer);
+    else $("sumline").textContent = String(problem.answer);
     var rested = state.streak;
     var extra = "";
     if ($("goal").textContent.indexOf("rests") !== -1) extra = " Streak rests at " + rested + ".";
-    setGoal("That's " + plural(problem.answer, "duck") + "." + extra, "soft");
-    $("live").textContent = "That's " + plural(problem.answer, "duck") + "." + extra;
+    setGoal(line + extra, "soft");
+    speak(line);
+    $("live").textContent = line;
   }
 
   function floatPlus(n) {
@@ -1195,8 +1570,9 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
   }
 
   function begin() {
-    if (phase === "spin" || phase === "celebrate" || phase === "answer" || phase === "count") return;
+    if (phase === "spin" || phase === "celebrate" || phase === "answer" || phase === "count" || phase === "story") return;
     initAudio();
+    try { if (window.speechSynthesis) window.speechSynthesis.resume(); } catch (e) {}
     playTap();
     setPhase("spin");
     $("start").hidden = true;
@@ -1208,7 +1584,7 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
   }
 
   function resetAll() {
-    if (!window.confirm("Reset saved streaks, hats, and golden ducks on this device?")) return;
+    if (!window.confirm("Reset saved streaks, hats, golden ducks, and the adding level on this device?")) return;
     state = fresh();
     lastKey = "";
     save();
@@ -1247,8 +1623,16 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
   $("mute").addEventListener("click", function () {
     soundOn = !soundOn;
     try { localStorage.setItem(SOUND_KEY, soundOn ? "on" : "off"); } catch (e) {}
+    if (!soundOn) quietSpeech();
     renderSound();
     if (soundOn) { initAudio(); playTap(); }
+  });
+  $("recount").addEventListener("click", function () { resetTaps(); });
+  $("cabinet").addEventListener("click", function (e) {
+    var btn = closestButton(e.target);
+    if (!btn || !btn.classList.contains("duckbtn")) return;
+    if (phase !== "answer") return;
+    countTap(btn);
   });
   $("bankBtn").addEventListener("click", openSheet);
   $("sheetClose").addEventListener("click", closeSheet);
@@ -1266,17 +1650,35 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
   renderChrome();
 
   window.DuckMath = {
+    ADAPT: {
+      WINDOW: ADAPT_WINDOW, TARGET: ADAPT_TARGET, MIN_SAMPLES: ADAPT_MIN_SAMPLES,
+      MISS_SPAN: ADAPT_MISS_SPAN, MISS_DROP: ADAPT_MISS_DROP,
+      SLOW_SPAN: ADAPT_SLOW_SPAN, SLOW_DROP: ADAPT_SLOW_DROP,
+      FLUENT: ADAPT_FLUENT
+    },
+    ADD_LADDER: ADD_LADDER,
+    SUB_LADDER: SUB_LADDER,
+    ADD_START: ADD_START,
+    SUB_UNLOCK_AT: SUB_UNLOCK_AT,
+    SUB_SIGN_AT: SUB_SIGN_AT,
     buildProblem: buildProblem,
-    dropStreak: dropStreak,
+    additionPairs: additionPairs,
     makeChoices: makeChoices,
-    bandFor: bandFor,
+    choiceCount: choiceCount,
+    consider: consider,
+    isSlow: isSlow,
+    dropStreak: dropStreak,
     tierAt: tierAt,
     nextGoal: nextGoal,
     rewardFor: rewardFor,
     getState: function () {
       return {
         best: state.best, streak: state.streak, bank: state.bank, solved: state.solved,
-        hats: state.hats.slice(), triedSub: state.triedSub, tried10: state.tried10, tried20: state.tried20
+        hats: state.hats.slice(), addLevel: state.addLevel, subLevel: state.subLevel,
+        subUnlocked: state.subUnlocked, sinceSub: state.sinceSub,
+        addLog: state.addLog.slice(), subLog: state.subLog.slice(),
+        addMark: state.addMark, subMark: state.subMark,
+        addCooldown: state.addCooldown, subCooldown: state.subCooldown
       };
     },
     setState: function (p) {
@@ -1286,9 +1688,16 @@ h1{margin:0;font-size:clamp(22px,5vw,36px);color:#18566f;line-height:1}
       if (p.bank != null) state.bank = p.bank;
       if (p.solved != null) state.solved = p.solved;
       if (p.hats) state.hats = p.hats.slice();
-      if (p.triedSub != null) state.triedSub = !!p.triedSub;
-      if (p.tried10 != null) state.tried10 = !!p.tried10;
-      if (p.tried20 != null) state.tried20 = !!p.tried20;
+      if (p.addLevel != null) state.addLevel = p.addLevel;
+      if (p.subLevel != null) state.subLevel = p.subLevel;
+      if (p.subUnlocked != null) state.subUnlocked = !!p.subUnlocked;
+      if (p.sinceSub != null) state.sinceSub = p.sinceSub;
+      if (p.addLog) state.addLog = p.addLog.slice();
+      if (p.subLog) state.subLog = p.subLog.slice();
+      if (p.addMark != null) state.addMark = p.addMark;
+      if (p.subMark != null) state.subMark = p.subMark;
+      if (p.addCooldown != null) state.addCooldown = p.addCooldown;
+      if (p.subCooldown != null) state.subCooldown = p.subCooldown;
       if (state.best < state.streak) state.best = state.streak;
       save();
       renderChrome();

@@ -72,7 +72,7 @@ window.VERA_CONTENT = [
   {
     title: "Vera's Duck Math",
     category: "games",
-    description: "Spin the duck reels, add or take away, and tap the answer. Streaks grow into new hats, bigger showers, and golden jackpots.",
+    description: "Spin the ducks and tap how many. Problems stay small and grow one duck at a time. Take-away is a short story she can watch.",
     href: "games/duck-math/",
     status: "ready"
   }
