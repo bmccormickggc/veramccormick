@@ -1,0 +1,85 @@
+{
+  "title": "Vera and Dada's Day at the Bengals Game",
+  "pages": [
+    {
+      "src": "pages/page-01.webp",
+      "alt": "Vera and Dada's Day at the Bengals Game cover",
+      "width": 1512,
+      "height": 1224,
+      "source": "print/Vera and Dada Bengals COVER.pdf",
+      "source_page": 1
+    },
+    {
+      "src": "pages/page-02.webp",
+      "alt": "Vera and Dada's Day at the Bengals Game page 2",
+      "width": 1512,
+      "height": 1224,
+      "source": "print/Vera and Dada Bengals INTERIOR.pdf",
+      "source_page": 1
+    },
+    {
+      "src": "pages/page-03.webp",
+      "alt": "Vera and Dada's Day at the Bengals Game page 3",
+      "width": 1512,
+      "height": 1224,
+      "source": "print/Vera and Dada Bengals INTERIOR.pdf",
+      "source_page": 2
+    },
+    {
+      "src": "pages/page-04.webp",
+      "alt": "Vera and Dada's Day at the Bengals Game page 4",
+      "width": 1512,
+      "height": 1224,
+      "source": "print/Vera and Dada Bengals INTERIOR.pdf",
+      "source_page": 3
+    },
+    {
+      "src": "pages/page-05.webp",
+      "alt": "Vera and Dada's Day at the Bengals Game page 5",
+      "width": 1512,
+      "height": 1224,
+      "source": "print/Vera and Dada Bengals INTERIOR.pdf",
+      "source_page": 4
+    },
+    {
+      "src": "pages/page-06.webp",
+      "alt": "Vera and Dada's Day at the Bengals Game page 6",
+      "width": 1512,
+      "height": 1224,
+      "source": "print/Vera and Dada Bengals INTERIOR.pdf",
+      "source_page": 5
+    },
+    {
+      "src": "pages/page-07.webp",
+      "alt": "Vera and Dada's Day at the Bengals Game page 7",
+      "width": 1512,
+      "height": 1224,
+      "source": "print/Vera and Dada Bengals INTERIOR.pdf",
+      "source_page": 6
+    },
+    {
+      "src": "pages/page-08.webp",
+      "alt": "Vera and Dada's Day at the Bengals Game page 8",
+      "width": 1512,
+      "height": 1224,
+      "source": "print/Vera and Dada Bengals INTERIOR.pdf",
+      "source_page": 7
+    },
+    {
+      "src": "pages/page-09.webp",
+      "alt": "Vera and Dada's Day at the Bengals Game page 9",
+      "width": 1512,
+      "height": 1224,
+      "source": "print/Vera and Dada Bengals INTERIOR.pdf",
+      "source_page": 8
+    },
+    {
+      "src": "pages/page-10.webp",
+      "alt": "Vera and Dada's Day at the Bengals Game final note photo",
+      "width": 1512,
+      "height": 1224,
+      "source": "print/Vera and Dada Bengals INTERIOR.pdf",
+      "source_page": 9
+    }
+  ]
+}
